@@ -1,0 +1,90 @@
+<svg width="1280" height="420" viewBox="0 0 1280 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ANSIO — Conversational Alpha Console">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b0c16"/>
+      <stop offset="1" stop-color="#12101f"/>
+    </linearGradient>
+    <radialGradient id="auroraA" cx="0.18" cy="0.2" r="0.5">
+      <stop offset="0" stop-color="#7c83ff" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#7c83ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraB" cx="0.85" cy="0.15" r="0.55">
+      <stop offset="0" stop-color="#7ad7e6" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#7ad7e6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraC" cx="0.7" cy="1" r="0.6">
+      <stop offset="0" stop-color="#b594ff" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#b594ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="word" x1="120" y1="150" x2="720" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#cdd2ff"/>
+      <stop offset="1" stop-color="#7c83ff"/>
+    </linearGradient>
+    <linearGradient id="pill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b4dec"/>
+      <stop offset="1" stop-color="#7c83ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="420" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="420" rx="20" fill="url(#auroraA)"/>
+  <rect width="1280" height="420" rx="20" fill="url(#auroraB)"/>
+  <rect width="1280" height="420" rx="20" fill="url(#auroraC)"/>
+  <rect x="0.5" y="0.5" width="1279" height="419" rx="20" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+
+  <!-- top eyebrow -->
+  <g transform="translate(120,86)">
+    <rect x="0" y="-19" width="11" height="11" rx="3" fill="#7c83ff"/>
+    <text x="26" y="-9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" letter-spacing="3" fill="#93a6c4">YC × MOSS · CONVERSATIONAL AI HACKATHON</text>
+  </g>
+
+  <!-- wordmark -->
+  <text x="118" y="214" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" font-size="118" font-weight="800" letter-spacing="-2" fill="url(#word)">ANSIO</text>
+
+  <!-- tagline -->
+  <text x="124" y="266" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" font-size="27" font-weight="600" fill="#e9f0fa">Conversational Alpha Console for the creator economy</text>
+  <text x="124" y="300" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" font-size="18" font-weight="400" fill="#93a6c4">Ask out loud — a voice agent retrieves a live creator library and surfaces the <tspan fill="#7ad7e6">underpriced</tspan> ones in milliseconds.</text>
+
+  <!-- metric chips -->
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" font-weight="600">
+    <g transform="translate(124,338)">
+      <rect width="196" height="40" rx="20" fill="#ffffff" fill-opacity="0.05" stroke="#7c83ff" stroke-opacity="0.4"/>
+      <text x="20" y="26" fill="#cdd2ff">3.1ms <tspan fill="#5e718f">Moss P50</tspan></text>
+    </g>
+    <g transform="translate(336,338)">
+      <rect width="232" height="40" rx="20" fill="#ffffff" fill-opacity="0.05" stroke="#7ad7e6" stroke-opacity="0.4"/>
+      <text x="20" y="26" fill="#bfeef6">13ms <tspan fill="#5e718f">5-hop recall chain</tspan></text>
+    </g>
+    <g transform="translate(584,338)">
+      <rect width="250" height="40" rx="20" fill="#ffffff" fill-opacity="0.05" stroke="#b594ff" stroke-opacity="0.4"/>
+      <text x="20" y="26" fill="#e3d4ff">vs 432ms/hop <tspan fill="#5e718f">slow vector DB</tspan></text>
+    </g>
+  </g>
+
+  <!-- right side: three-panel glyph -->
+  <g transform="translate(902,96)" opacity="0.96">
+    <rect x="0" y="0" width="258" height="228" rx="16" fill="#0f1322" stroke="#ffffff" stroke-opacity="0.10"/>
+    <!-- left rail -->
+    <rect x="12" y="14" width="56" height="200" rx="9" fill="#7c83ff" fill-opacity="0.12"/>
+    <circle cx="40" cy="40" r="11" fill="#7c83ff" fill-opacity="0.6"/>
+    <rect x="22" y="64" width="36" height="6" rx="3" fill="#ffffff" fill-opacity="0.18"/>
+    <rect x="22" y="80" width="36" height="6" rx="3" fill="#ffffff" fill-opacity="0.12"/>
+    <!-- center conversation -->
+    <rect x="78" y="14" width="106" height="172" rx="9" fill="#ffffff" fill-opacity="0.03"/>
+    <rect x="88" y="28" width="70" height="18" rx="9" fill="#7c83ff" fill-opacity="0.30"/>
+    <rect x="104" y="54" width="70" height="18" rx="9" fill="#ffffff" fill-opacity="0.10"/>
+    <rect x="88" y="80" width="58" height="18" rx="9" fill="#7c83ff" fill-opacity="0.30"/>
+    <rect x="92" y="166" width="78" height="14" rx="7" fill="url(#pill)"/>
+    <!-- right evidence -->
+    <rect x="194" y="14" width="52" height="200" rx="9" fill="#7ad7e6" fill-opacity="0.08"/>
+    <rect x="202" y="26" width="36" height="26" rx="6" fill="#7ad7e6" fill-opacity="0.18"/>
+    <text x="207" y="43" font-family="ui-monospace,monospace" font-size="9" fill="#7ad7e6">8ms</text>
+    <rect x="202" y="60" width="36" height="26" rx="6" fill="#b594ff" fill-opacity="0.16"/>
+    <rect x="202" y="94" width="36" height="26" rx="6" fill="#ffffff" fill-opacity="0.06"/>
+  </g>
+
+  <!-- powered by -->
+  <text x="902" y="356" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" letter-spacing="1" fill="#5e718f">POWERED BY</text>
+  <text x="902" y="380" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" font-weight="700" fill="#cdd2ff">Moss<tspan fill="#5e718f"> · </tspan>LiveKit<tspan fill="#5e718f"> · </tspan>MiniMax<tspan fill="#5e718f"> · </tspan>Deepgram</text>
+</svg>
