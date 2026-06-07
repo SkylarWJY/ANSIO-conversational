@@ -12,8 +12,8 @@ One knob, `LLM_PROVIDER`, picks the conversational brain at construction time:
                   We reach it through the LiveKit `openai` plugin's `base_url`
                   path — measured to speak OpenAI `/v1/chat/completions` with
                   streaming + tool-calls.
-- ``inference`` — the already-verified LiveKit Inference fallback
-                  (gpt-4.1-mini). No provider key required.
+- ``inference`` — the default LiveKit Inference brain
+                  (openai/gpt-4.1-mini). No provider key required.
 
 KISS + lazy: this module imports nothing from livekit at import time, and
 `build_llm()` only imports the plugin it actually needs. That keeps the agent's
@@ -39,9 +39,9 @@ _INFERENCE_MODEL_DEFAULT = "openai/gpt-4.1-mini"
 
 def resolve_provider(override: str | None = None) -> str:
     """Return the normalized provider name (minimax | claude | inference)."""
-    provider = (override or os.getenv("LLM_PROVIDER", "minimax")).strip().lower()
+    provider = (override or os.getenv("LLM_PROVIDER", "inference")).strip().lower()
     if provider not in {"minimax", "claude", "inference"}:
-        provider = "minimax"
+        provider = "inference"
     return provider
 
 

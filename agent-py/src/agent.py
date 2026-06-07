@@ -33,7 +33,7 @@ from livekit.plugins import ai_coustics, minimax, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from moss import MossClient, QueryOptions
 
-from events import build_evidence, kol_items, publish_evidence
+from events import EVIDENCE_TYPES, build_evidence, kol_items, publish_evidence
 from llm_factory import build_llm, model_label
 from scoring import load_benchmark, score_and_rank
 from state import AnsioState
@@ -143,6 +143,62 @@ def _fmt_int(v) -> str:
     return f"{n:,}" if n else str(v if v is not None else "?")
 
 
+def _looks_like_retrieval_turn(text: str) -> bool:
+    """Cheap guard for pre-retrieval: search only when the turn has demo intent."""
+    t = (text or "").strip().lower()
+    if not t:
+        return False
+    smalltalk = {
+        "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "好的",
+        "谢谢", "你好", "您好", "明白", "可以", "没问题",
+    }
+    if t in smalltalk:
+        return False
+    retrieval_markers = (
+        "ai coding", "coding tool", "developer", "indie hacker", "builder",
+        "creator", "kol", "influencer", "campaign", "growth", "user growth",
+        "competitor", "cursor", "copilot", "replit", "codeium", "youtube",
+        "twitter", "x ", "audience", "budget", "roi", "达人", "创作者",
+        "增长", "用户", "竞品", "对标", "投放", "营销", "开发者", "独立开发者",
+        "预算", "转化", "合作", "报价",
+    )
+    return any(marker in t for marker in retrieval_markers)
+
+
+def _llm_card_items(items_json: str, limit: int = 6) -> list[dict]:
+    """Parse and sanitize LLM-authored card items before they hit the UI."""
+    if not items_json:
+        return []
+    try:
+        raw = json.loads(items_json)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(raw, dict):
+        raw = raw.get("items", [])
+    if not isinstance(raw, list):
+        return []
+
+    allowed = {
+        "title", "name", "handle", "platform", "followers", "niche", "region",
+        "sub", "source", "reason", "why", "takeaway", "score", "alpha", "match_score",
+        "perf_score", "total_score", "engagement_pct", "estimated_market_cost",
+        "posts", "total_views",
+    }
+    out: list[dict] = []
+    for item in raw[:limit]:
+        if not isinstance(item, dict):
+            continue
+        clean = {}
+        for key, value in item.items():
+            if key not in allowed or value is None:
+                continue
+            if isinstance(value, (str, int, float, bool)):
+                clean[key] = str(value)[:220] if isinstance(value, str) else value
+        if clean:
+            out.append(clean)
+    return out
+
+
 # ===========================================================================
 # Assistant
 # ===========================================================================
@@ -156,8 +212,8 @@ class Assistant(Agent):
     def __init__(self, *, room=None, user_id: str = DEFAULT_USER_ID) -> None:
         super().__init__(
             # The conversational brain comes from the LLM factory (default
-            # provider=minimax per F2's measured verdict; claude/inference are
-            # env-hot-swap fallbacks). build_llm() lazily imports its plugin.
+            # provider=inference / openai/gpt-4.1-mini; minimax and claude are
+            # env-hot-swap alternatives). build_llm() lazily imports its plugin.
             llm=build_llm(),
             instructions=_INSTRUCTIONS,
         )
@@ -169,6 +225,7 @@ class Assistant(Agent):
         self._indexes_loaded = False
         self._benchmark = load_benchmark()
         self._state = AnsioState()
+        self._turn_card_types: set[str] = set()
         # Dedup guard for on_user_turn_completed double-fire under preemptive
         # generation (livekit/agents #3414): remember the last injected turn.
         self._last_injected_text = None
@@ -204,6 +261,9 @@ class Assistant(Agent):
         if not text or text == self._last_injected_text:
             return  # same-turn dedup guard (preemptive double-fire)
         self._last_injected_text = text
+        self._turn_card_types.clear()
+        if not _looks_like_retrieval_turn(text):
+            return
         try:
             t0 = time.perf_counter()
             result = await self._moss.query(IDX_KOLS, text, QueryOptions(top_k=3))
@@ -222,16 +282,9 @@ class Assistant(Agent):
                     f"verbatim] candidates near this brief: {snippet}"
                 ),
             )
-            await publish_evidence(
-                self._room,
-                build_evidence(
-                    "similar_creators",
-                    index=IDX_KOLS,
-                    latency_ms=took_ms,
-                    items=kol_items(cands, limit=3),
-                    insight="Pre-retrieved candidates for the latest turn.",
-                ),
-            )
+            # Keep pre-retrieval invisible: it is context for lower latency, not a
+            # right-rail demo step. Visible cards should advance only when the
+            # LLM/tool route intentionally selects that step.
         except Exception:
             logger.exception("Preemptive retrieval injection failed")
 
@@ -255,7 +308,11 @@ class Assistant(Agent):
     async def find_competitors(
         self, context: RunContext, product_desc: str, top_k: int = 5
     ) -> str:
-        """Find competing products/brands in the user's space (semantic only).
+        """STEP 1 — Competitor Discovery.
+
+        Use after a new product/growth brief, especially for "AI coding tool",
+        "who should we benchmark", or "what companies already ran this motion".
+        This should drive a right-rail "Competitor Landscape" card.
 
         Args:
             product_desc: Natural-language description of the user's product,
@@ -298,7 +355,11 @@ class Assistant(Agent):
         kol_handle: str = "",
         product_desc: str = "",
     ) -> str:
-        """Find sponsorship history. Two MUTUALLY EXCLUSIVE directions (PRD T4):
+        """STEP 2 — Competitor Campaign / Partnership Analysis.
+
+        Use when the founder asks who a competitor worked with, what Cursor or
+        Codeium did on Twitter/YouTube, or which creator campaigns performed.
+        Two MUTUALLY EXCLUSIVE directions:
 
         - Forward "who promoted BRAND": pass ``brand`` only.
         - Reverse "what has @HANDLE promoted": pass ``kol_handle`` only.
@@ -352,7 +413,10 @@ class Assistant(Agent):
 
     @function_tool()
     async def get_kol_profile(self, context: RunContext, handle: str) -> str:
-        """Pull one creator's full profile by handle (point lookup, PRD T3).
+        """STEP 4 — Creator / Audience Intelligence for one creator.
+
+        Use when the founder asks why a specific creator is good, wants audience
+        fit, content style, engagement, region, or performance details.
 
         Args:
             handle: The creator handle, with or without a leading @.
@@ -394,7 +458,10 @@ class Assistant(Agent):
         platform: str = "",
         top_k: int = WIDE_POOL_TOP_K,
     ) -> str:
-        """Find creators similar to a brief; recalls a WIDE pool (PRD T1, T2).
+        """STEP 3/4 — Creator Discovery and Similar Creator Expansion.
+
+        Use when the founder asks what kind of creators to find, asks for people
+        similar to Cursor's partners, or changes platform/niche/audience filters.
 
         Recalls ``top_k=80`` WITHOUT a budget filter and caches the pool so
         budget/weight changes re-rank in Python with no re-query. Re-call this
@@ -427,6 +494,19 @@ class Assistant(Agent):
                 insight=f"Recalled {len(pool)} candidate creators.",
             ),
         )
+        if pool:
+            await publish_evidence(
+                self._room,
+                build_evidence(
+                    "kol_profile",
+                    step=4,
+                    index=IDX_KOLS,
+                    items=kol_items(pool[:1], limit=1),
+                    insight="Audience intelligence for the strongest matching archetype.",
+                    title="Audience Intelligence",
+                ),
+            )
+            self._turn_card_types.add("kol_profile")
         if not pool:
             return "No similar creators found for that brief."
         names = "; ".join(
@@ -439,7 +519,11 @@ class Assistant(Agent):
     async def search_playbook(
         self, context: RunContext, question: str, doc_type: str = ""
     ) -> str:
-        """Search the ANSIO methodology playbook (objections, strategy, cases).
+        """Ground objections, strategy, content angles, and ROI claims.
+
+        Use for objections like "Cursor is too big to compare to", methodology
+        questions like "how do we know it worked", content strategy questions,
+        and ROI/budget rationale before making a confident recommendation.
 
         Args:
             question: The question or objection to look up.
@@ -468,9 +552,115 @@ class Assistant(Agent):
                 source=(items[0]["source"] if items else ""),
             ),
         )
+        q_lower = (question or "").lower()
+        if any(k in q_lower for k in ("content", "angle", "hook", "post", "script", "内容", "脚本")):
+            await publish_evidence(
+                self._room,
+                build_evidence(
+                    "content_strategy",
+                    step=7,
+                    index=IDX_CONTENT,
+                    items=[
+                        {
+                            "title": "Workflow demo",
+                            "platform": "YouTube / X",
+                            "reason": "Show the tool solving a real coding task.",
+                            "source": items[0]["source"] if items else "playbook",
+                        },
+                        {
+                            "title": "Builder story",
+                            "platform": "X",
+                            "reason": "Frame the product through an indie builder's daily workflow.",
+                            "source": items[0]["source"] if items else "playbook",
+                        },
+                    ],
+                    insight="Recommended content angles for developer conversion.",
+                    title="Content Strategy",
+                ),
+            )
+            self._turn_card_types.add("content_strategy")
+        if any(k in q_lower for k in ("roi", "return", "forecast", "reach", "trial", "conversion", "预算", "转化")):
+            await publish_evidence(
+                self._room,
+                build_evidence(
+                    "roi_forecast",
+                    step=8,
+                    index=IDX_CONTENT,
+                    items=[
+                        {
+                            "title": "First test budget",
+                            "estimated_market_cost": 5000,
+                            "reason": "Keep the first round controlled before scaling.",
+                        },
+                        {
+                            "title": "Expected trial lift",
+                            "score": "conservative",
+                            "reason": "Depends on creator fit, content quality, and product activation.",
+                        },
+                    ],
+                    insight="Conservative ROI forecast for the first creator test.",
+                    title="ROI Forecast",
+                ),
+            )
+            self._turn_card_types.add("roi_forecast")
         if not rows:
             return "I don't have a playbook note on that."
         return rows[0]["text"][:400]
+
+    @function_tool()
+    async def publish_insight_card(
+        self,
+        context: RunContext,
+        card_type: str,
+        title: str,
+        insight: str,
+        items_json: str = "[]",
+    ) -> str:
+        """Publish one LLM-authored right-panel card for the demo chain.
+
+        Use after retrieval or reasoning when the right panel should advance the
+        eight-step story:
+        1 competitor_landscape = Competitor Landscape
+        2 content_hits = Campaign Timeline / Partnerships
+        3 similar_creators = Creator Discovery
+        4 kol_profile = Audience Intelligence
+        5 alpha_ranking = Creator Alpha Ranking
+        6 bundle = Campaign Bundle
+        7 content_strategy = Content Strategy
+        8 roi_forecast = ROI Forecast / Recommended Campaign
+
+        Only use facts from the conversation or tool results. ``items_json``
+        must be a JSON array of objects.
+
+        Args:
+            card_type: One of competitor_landscape, content_hits, playbook_hit,
+                kol_profile, similar_creators, alpha_ranking, bundle,
+                content_strategy, roi_forecast.
+            title: Short card title.
+            insight: One-sentence card subtitle or takeaway.
+            items_json: JSON array of item objects with fields like title, name,
+                handle, platform, followers, niche, score, alpha, reason,
+                estimated_market_cost, posts, total_views.
+        """
+        ct = (card_type or "").strip()
+        if ct not in EVIDENCE_TYPES:
+            ct = "content_hits"
+        if ct in self._turn_card_types:
+            return f"Skipped duplicate {ct} card for this turn."
+        items = _llm_card_items(items_json)
+        await publish_evidence(
+            self._room,
+            build_evidence(
+                ct,
+                step="LLM",
+                index="llm",
+                items=items,
+                insight=(insight or "")[:220],
+                title=(title or ct.replace("_", " ").title())[:80],
+            ),
+        )
+        self._turn_card_types.add(ct)
+        return f"Published {ct} card with {len(items)} items."
 
     # =====================================================================
     # META-TOOL (latency war-card core): ONE LLM decision -> deterministic
@@ -487,18 +677,19 @@ class Assistant(Agent):
         platform: str = "",
         budget: float | None = None,
     ) -> str:
-        """Run the full ANSIO recall chain and return scored recommendations.
+        """STEP 5 — Creator Alpha Ranking and recommendation.
 
-        Call this ONCE when you have enough of a brief to recommend creators. It
-        deterministically chains competitors -> sponsorship graph -> wide creator
-        recall -> Python Alpha scoring, all in-process, and returns the ranked
-        top creators with their fit/performance/value breakdown.
+        Call this once the founder asks for recommended creators, underpriced
+        alternatives, budget-backed picks, or "who would you choose". It runs
+        competitor context -> wide creator recall -> Python Alpha scoring, then
+        returns ranked creators with fit/performance/value breakdown.
 
         Args:
             product_desc: The user's product/brief.
             niche: Optional creator niche to bias recall.
             platform: Optional platform filter.
-            budget: Optional per-post budget cap (filters in Python, no re-query).
+            budget: Optional per-post budget cap. Pass this ONLY if the founder
+                explicitly stated a numeric cap; otherwise leave it empty.
         """
         platform_w = _wl_platform(platform)
         niche_w = _wl_niche(niche)
@@ -516,13 +707,10 @@ class Assistant(Agent):
                      "funding": r["metadata"].get("funding", "")}
                     for r in _md_list(cres)
                 ]
-                if comp_items:
-                    await publish_evidence(
-                        self._room,
-                        build_evidence("competitor_landscape", step=1,
-                                       index=IDX_PRODUCTS, items=comp_items,
-                                       insight="Closest companies in your space."),
-                    )
+                # Do not publish a competitor card here: this meta-tool is Step
+                # 5 (Creator Alpha). Step 1 should come only from the explicit
+                # competitor-discovery route, otherwise the right rail jumps
+                # backward during recommendation turns.
             filt = _build_kol_filter(platform_w, niche_w)
             kres, _ = await self._q(
                 IDX_KOLS, product_desc, top_k=WIDE_POOL_TOP_K, filt=filt
@@ -558,6 +746,18 @@ class Assistant(Agent):
                 insight="Ranked by fit, performance and value (Alpha).",
             ),
         )
+        await publish_evidence(
+            self._room,
+            build_evidence(
+                "bundle",
+                step=6,
+                index=IDX_KOLS,
+                items=kol_items(ranked, limit=3),
+                insight="Two-creator test bundle with complementary developer reach.",
+                title="Campaign Bundle",
+            ),
+        )
+        self._turn_card_types.add("bundle")
         self._state.recommended = True
         return self._format_ranked(ranked)
 
@@ -600,16 +800,77 @@ _INSTRUCTIONS = textwrap.dedent(
     undervalued creators (KOLs) for influencer campaigns. You speak in voice,
     mixing English and Chinese naturally when it fits the listener.
 
+    # Turn policy: classify first, then decide whether to retrieve
+    Silently classify every founder turn before answering:
+    - pure smalltalk / thanks / greeting: no retrieval. Greet briefly and ask
+      for the campaign problem, target customer, or product category.
+    - greeting plus product/growth/audience facts: NOT smalltalk. Treat it as
+      the relevant business intent and retrieve immediately.
+    - qualification: no retrieval unless the founder already names a product,
+      audience, competitor, creator, budget, or growth goal. Ask at most one
+      sharp question.
+    - new growth brief: call `find_competitors` first, then answer with the
+      benchmark logic. Do not ask for more info if the product category and
+      growth goal are already present.
+    - competitor campaign question ("who did Cursor work with", "what worked"):
+      call `find_kols_who_promoted`.
+    - objection / proof / "Cursor is too big" / "how do we know it worked":
+      call `search_playbook` before making the strategic argument.
+    - creator discovery / "what kind of达人" / "find similar people":
+      call `find_similar_kols`.
+    - specific creator / handle / audience detail: call `get_kol_profile`.
+    - recommendation / "who would you pick" / underpriced creators:
+      call `recommend_kols` once, then reason from the ranked result. Do not
+      pass a budget unless the founder gave a numeric cap.
+    - budget range question with no stated cap: recommend a first-test range of
+      3000-5000 USD, then offer to refine. Do not pass a fake budget to tools.
+    - content angle question: call `search_playbook`, then publish a
+      `content_strategy` card with concrete angles.
+    - ROI / expected reach / conversion question: call `search_playbook`, then
+      publish a `roi_forecast` card with conservative ranges if supported by
+      playbook or current plan context.
+    - presentation step: when a right-rail card should advance the demo story,
+      call `publish_insight_card` with your chosen card_type and item content.
+
+    # Eight-step demo chain
+    Make the conversation naturally drive this right rail:
+    1 Competitor Landscape -> `competitor_landscape`
+    2 Campaign Timeline / Partnerships -> `content_hits`
+    3 Creator Discovery -> `similar_creators`
+    4 Audience Intelligence -> `kol_profile`
+    5 Creator Alpha Ranking -> `alpha_ranking`
+    6 Campaign Bundle -> `bundle`
+    7 Content Strategy -> `content_strategy`
+    8 ROI Forecast / Recommended Campaign -> `roi_forecast`
+    - Do not skip forward in the visible card chain. If the earlier evidence
+      step has not appeared in the conversation, ask or retrieve that step
+      before publishing a later card. In particular, show Campaign Timeline
+      before Creator Discovery, and Creator Alpha before Bundle/Content/ROI.
+    - Do not publish earlier-step cards after a later decision card; use spoken
+      summary instead.
+    - After Creator Discovery, publish Audience Intelligence (`kol_profile`) for
+      the strongest creator or archetype before moving to Creator Alpha.
+    - After Creator Alpha, publish Campaign Bundle (`bundle`) before moving to
+      Content Strategy or ROI.
+
     # How you work
-    - Understand the user's product, audience, platform, budget, and goal.
-    - Lead with insight, not interrogation: as soon as you can name a niche,
-      start retrieving — do not ask three questions before showing value.
-    - To recommend creators, call `recommend_kols` ONCE with the brief. It runs
-      the whole recall + scoring chain internally. Do not chain the five lookup
-      tools yourself for the main recommendation flow.
-    - Use `find_competitors`, `find_kols_who_promoted`, `get_kol_profile`,
-      `find_similar_kols`, and `search_playbook` for targeted follow-ups and
-      objections.
+    - Lead with insight, not interrogation: once you know the product category
+      and audience, retrieve and show value.
+    - Prefer one well-chosen retrieval tool per turn. Do not call every tool.
+    - After retrieval, answer in the founder's language and, when appropriate,
+      publish one polished right-rail card using `publish_insight_card`. Avoid
+      duplicate cards of the same type in the same turn unless the LLM card adds
+      a clearer decision layer.
+    - Use only tool results or conversation facts in cards. Never invent names,
+      handles, follower counts, prices, or ROI metrics.
+    - If the user asks to proceed at the end, summarize the selected creators,
+      budget, expected reach/trials/ROI, and publish an ROI Forecast card.
+    - For the AI coding tool demo, keep the narrative close to:
+      Cursor/Codeium benchmark -> creator partnerships -> similar creators ->
+      Creator Alpha -> two-creator bundle -> workflow/demo content -> ROI.
+    - If a turn asks both "who would you pick" and budget, call `recommend_kols`,
+      then publish a `bundle` card with the two selected creators, budget split,
+      and audience coverage before discussing content or ROI.
 
     # Re-retrieval rule (important)
     - If the user ADDS or CHANGES a platform, niche, audience, or budget
@@ -626,6 +887,8 @@ _INSTRUCTIONS = textwrap.dedent(
     # Output rules (voice)
     - Plain spoken text only: no JSON, markdown, lists, tables, code, or emojis.
     - One to three sentences per turn; name at most three creators at a time.
+    - If the user only greets you, start with a clear friendly greeting before
+      asking for their campaign or product details.
     - Spell numbers naturally ("three hundred thousand followers").
     - Read handles plainly, without the at-sign noise.
     - Only mention an ESTIMATED MARKET COST; never claim to know a creator's

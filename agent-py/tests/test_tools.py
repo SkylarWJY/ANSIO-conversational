@@ -197,6 +197,34 @@ def test_recommend_kols_budget_filters_in_python_no_requery(stub):
     assert all(float(c["metadata"]["price_usd"]) <= 500 for c in ranked)
 
 
+def test_publish_insight_card_uses_llm_card_type_and_items(stub):
+    a = Assistant(room=_Room(), user_id=USER_ID)
+    items = json.dumps([
+        {
+            "name": "Theo",
+            "handle": "theobennett1",
+            "platform": "YouTube",
+            "reason": "Developer audience fit",
+            "secret": "must not leak",
+        }
+    ])
+    out = asyncio.run(
+        a.publish_insight_card(
+            None,
+            card_type="alpha_ranking",
+            title="LLM picks",
+            insight="Best creator shortlist.",
+            items_json=items,
+        )
+    )
+    payloads = [json.loads(p.decode()) for p, _ in a._room.local_participant.published]
+    assert out == "Published alpha_ranking card with 1 items."
+    assert payloads[0]["type"] == "alpha_ranking"
+    assert payloads[0]["index"] == "llm"
+    assert payloads[0]["items"][0]["handle"] == "theobennett1"
+    assert "secret" not in payloads[0]["items"][0]
+
+
 # --- on_user_turn_completed dedup guard (#3414) ----------------------------
 
 
@@ -208,4 +236,25 @@ def test_turn_injection_dedup_guard(stub):
     asyncio.run(a.on_user_turn_completed(turn, msg))
     asyncio.run(a.on_user_turn_completed(turn, msg))  # duplicate same-turn fire
     assert len(turn.added) == 1  # injected exactly once despite two fires
+    assert len(a._moss.query_calls) == 1
+
+
+def test_turn_injection_skips_smalltalk(stub):
+    a = Assistant(room=_Room(), user_id=USER_ID)
+    turn = _Turn()
+    asyncio.run(a.on_user_turn_completed(turn, _Msg("你好")))
+    assert turn.added == []
+    assert a._moss.query_calls == []
+
+
+def test_turn_injection_runs_for_growth_brief(stub):
+    a = Assistant(room=_Room(), user_id=USER_ID)
+    a._moss.results_by_index[agent_module.IDX_KOLS] = _FakeResult([_kol_doc("k")])
+    turn = _Turn()
+    asyncio.run(
+        a.on_user_turn_completed(
+            turn, _Msg("We are an AI coding tool and need user growth")
+        )
+    )
+    assert len(turn.added) == 1
     assert len(a._moss.query_calls) == 1
