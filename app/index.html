@@ -645,6 +645,7 @@
     -webkit-backdrop-filter: blur(26px) saturate(140%);
             backdrop-filter: blur(26px) saturate(140%);
     min-width: 0;
+    min-height: 0; /* grid item must shrink so .stream scrolls instead of the rail overflowing */
   }
   .rail-r-head {
     padding: 18px 18px 14px;
@@ -1027,6 +1028,155 @@
     box-shadow: 0 0 0 3px oklch(0.74 0.085 165 / 0.18);
   }
   .recall li.lit::after { background: var(--pos); opacity: 0.4; }
+
+  /* ============================================================
+     DESIGNER EVIDENCE CARDS (v5 render spec) — appended; existing
+     .card-* rules above are untouched. Tokens reused throughout:
+     --accent-*/--glass/--ink-*/--stroke/--pos/--gold/--r-md.
+     ============================================================ */
+  /* generic glassy inset block + stagger (designer .rin) */
+  .rin {
+    background: var(--glass); border: 1px solid var(--stroke);
+    border-radius: var(--r-md);
+    animation: itemIn 0.5s var(--ease-out) both; animation-delay: var(--d, 0ms);
+  }
+  /* shared pill (sim / badges) */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 600; color: var(--ink-1);
+    padding: 3px 8px; border-radius: 100px;
+    background: var(--glass); border: 1px solid var(--stroke); white-space: nowrap;
+  }
+  .pill.accent {
+    color: var(--accent-bright);
+    border-color: oklch(0.66 var(--accent-c) var(--accent-h) / 0.3);
+    background: oklch(0.66 var(--accent-c) var(--accent-h) / 0.12);
+  }
+  .pill.pos  { color: var(--pos);  border-color: oklch(0.74 0.085 165 / 0.3); background: oklch(0.74 0.085 165 / 0.1); }
+  .pill.gold { color: var(--gold); border-color: oklch(0.80 0.075 84 / 0.3);  background: oklch(0.80 0.075 84 / 0.1); }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* insight footnote bar ("The pattern …") */
+  .card-insight {
+    margin-top: 10px; padding: 11px 13px; border-radius: 12px;
+    display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+    background: oklch(0.66 var(--accent-c) var(--accent-h) / 0.1);
+    border: 1px solid oklch(0.66 var(--accent-c) var(--accent-h) / 0.22);
+  }
+  .card-insight .ci-k { font-size: 10px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.05em; }
+  .card-insight .ci-v { font-size: 13px; font-weight: 700; color: var(--accent-bright); line-height: 1.35; }
+  .card-insight .ci-note { font-size: 11px; color: var(--ink-2); margin-left: auto; }
+
+  /* --- competitors grid (.cmp) --- */
+  .card-body:has(.cmp) { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .cmp { padding: 12px; }
+  .cmp.is-lead { border-color: oklch(0.66 var(--accent-c) var(--accent-h) / 0.45); box-shadow: 0 0 0 3px oklch(0.66 var(--accent-c) var(--accent-h) / 0.08); }
+  .cmp-row { display: flex; align-items: center; gap: 9px; }
+  .cmp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .cmp-name { font-size: 13px; font-weight: 600; color: var(--ink-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmp-sub { font-size: 10px; color: var(--ink-2); margin-top: 1px; }
+  .cmp-sim { align-self: center; }
+  .cmp-desc { font-size: 11px; color: var(--ink-1); line-height: 1.5; margin: 9px 0 0; min-height: 33px; }
+  .cmp-barrow { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-2); margin: 9px 0 5px; }
+
+  /* --- creator rows (.crv) --- */
+  .card-body:has(.crv) { gap: 8px; }
+  .crv { display: flex; align-items: center; gap: 11px; padding: 11px 13px; }
+  .crv.is-top { border-color: oklch(0.66 var(--accent-c) var(--accent-h) / 0.4); }
+  .crv .it-avatar { width: 40px; height: 40px; font-size: 13px; }
+  .crv-main { flex: 1; min-width: 0; }
+  .crv-namerow { display: flex; align-items: center; gap: 7px; }
+  .crv-name { font-size: 13px; font-weight: 600; color: var(--ink-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crv-badge { flex: none; }
+  .crv-sub { display: block; font-size: 10.5px; color: var(--ink-2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crv-trio { display: flex; gap: 16px; flex: none; }
+  .crv-m { display: flex; flex-direction: column; align-items: flex-end; }
+  .crv-mv { font-size: 13px; font-weight: 600; color: var(--ink-0); }
+  .crv-ml { font-size: 9px; color: var(--ink-3); margin-top: 1px; }
+
+  /* --- alpha leaderboard (.lb) --- */
+  .lb { display: flex; flex-direction: column; gap: 3px; }
+  .lb-head, .lb-row {
+    display: grid; grid-template-columns: 1.6fr 0.9fr 0.9fr 1.3fr;
+    align-items: center; gap: 8px;
+  }
+  .lb-head { padding: 4px 8px 7px; border-bottom: 1px solid var(--stroke); }
+  .lb-th { font-size: 9.5px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .lb-th.num, .lb-c.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-row { padding: 8px; border-radius: 11px; }
+  .lb-row.is-top { background: oklch(0.80 0.075 84 / 0.08); box-shadow: inset 0 0 0 1px oklch(0.80 0.075 84 / 0.25); }
+  .lb-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .lb-name .it-avatar { width: 32px; height: 32px; font-size: 11px; }
+  .lb-nt { min-width: 0; display: flex; flex-direction: column; }
+  .lb-nm { font-size: 12.5px; font-weight: 550; color: var(--ink-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-handle { font-size: 10px; color: var(--ink-3); }
+  .lb-c { font-size: 12px; color: var(--ink-1); }
+  .lb-c.pos { color: var(--pos); }
+  .lb-alpha { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .lb-bar { flex: 1; max-width: 52px; height: 6px; border-radius: 100px; background: var(--stroke); overflow: hidden; }
+  .lb-bar i { display: block; height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--accent-deep), var(--accent-bright)); }
+  .lb-bar.gold i { background: linear-gradient(90deg, oklch(0.66 0.075 84), var(--gold)); }
+  .lb-av { font-size: 13px; font-weight: 700; color: var(--ink-0); font-variant-numeric: tabular-nums; }
+  .lb-av.gold { color: var(--gold); }
+
+  /* --- channel bars (.chb) --- */
+  .chb { display: flex; flex-direction: column; gap: 9px; }
+  .chb-row { display: flex; align-items: center; gap: 10px; }
+  .chb-label { width: 92px; flex: none; text-align: right; font-size: 11px; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chb-track { flex: 1; height: 30px; border-radius: 9px; background: var(--glass); overflow: hidden; }
+  .chb-track i {
+    display: flex; align-items: center; justify-content: flex-end;
+    height: 100%; border-radius: 9px; min-width: 36px;
+    padding-right: 10px;
+    background: linear-gradient(90deg, oklch(0.5 0.09 var(--bh, 258)), oklch(0.7 0.11 var(--bh, 258)));
+    animation: barGrow 0.7s var(--ease-out) both; animation-delay: var(--d, 0ms);
+  }
+  .chb-track i b { font-size: 12px; font-weight: 700; color: #fff; }
+  @keyframes barGrow { from { transform: scaleX(0); transform-origin: left; } to { transform: none; } }
+  .chb-note { width: 130px; flex: none; font-size: 11px; color: var(--ink-2); }
+
+  /* --- content angle grid (.cag) --- */
+  .cag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cag { padding: 13px; }
+  .cag-head { display: flex; align-items: center; gap: 9px; }
+  .cag-ic {
+    width: 26px; height: 26px; flex: none; border-radius: 8px;
+    display: grid; place-items: center; font-size: 13px; color: var(--ink-0);
+    background: oklch(0.66 0.1 var(--bh, 258) / 0.16);
+  }
+  .cag-ht { min-width: 0; display: flex; flex-direction: column; }
+  .cag-angle { font-size: 12.5px; font-weight: 600; color: var(--ink-0); }
+  .cag-who { font-size: 10px; color: var(--ink-2); margin-top: 1px; }
+  .cag-hook { font-size: 12px; font-weight: 550; color: var(--accent-bright); line-height: 1.45; margin: 9px 0 0; }
+  .cag-t { font-size: 11px; color: var(--ink-1); margin: 5px 0 0; line-height: 1.4; }
+
+  /* --- bundle recommend grid (.bnd) --- */
+  .bnd-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; }
+  .bnd { padding: 12px; }
+  .bnd.is-best { border-color: oklch(0.66 var(--accent-c) var(--accent-h) / 0.4); background: oklch(0.66 var(--accent-c) var(--accent-h) / 0.07); }
+  .bnd-head { display: flex; align-items: center; gap: 8px; }
+  .bnd-head .it-avatar { width: 34px; height: 34px; font-size: 11px; }
+  .bnd-id { min-width: 0; display: flex; flex-direction: column; }
+  .bnd-name { font-size: 12px; font-weight: 600; color: var(--ink-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bnd-plat { font-size: 9.5px; color: var(--ink-3); }
+  .bnd-role { font-size: 10px; font-weight: 550; color: var(--accent-bright); margin-top: 7px; }
+  .bnd-kvs { margin-top: 9px; }
+  .bnd-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 6px 0; border-top: 1px solid var(--stroke); }
+  .bnd-k { font-size: 10px; color: var(--ink-2); }
+  .bnd-v { font-size: 11.5px; color: var(--ink-0); font-variant-numeric: tabular-nums; }
+  .bnd-kv.hl .bnd-v { font-weight: 700; color: var(--accent-bright); }
+
+  /* --- kol_profile donut (.dn) --- */
+  .dn { display: flex; align-items: center; gap: 16px; padding: 6px 4px 2px; }
+  .dn-chart { flex: none; }
+  .dn-svg { width: 130px; height: 130px; display: block; }
+  .dn-cv { font-size: 26px; font-weight: 700; fill: var(--ink-0); }
+  .dn-cl { font-size: 10px; fill: var(--ink-2); }
+  .dn-legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  .dn-leg { display: flex; align-items: center; gap: 8px; }
+  .dn-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dn-ll { font-size: 12px; color: var(--ink-1); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dn-lv { font-size: 12.5px; font-weight: 600; color: var(--ink-0); font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -1588,9 +1738,16 @@
       var items = (Array.isArray(spec.items) ? spec.items : []).slice(0, 6).map(function (it) {
         it = it || {};
         var o = {};
-        // generic / creator / competitor / leaderboard display fields (renderItem)
-        ["title", "sub", "score", "source", "category", "sim", "followers",
-         "eng", "alpha_score", "platform", "rank", "insight"].forEach(function (k) {
+        // display fields read by the designer card renderers (renderCardBody +
+        // renderItem). Kept as a whitelist so localStorage stays compact, but
+        // extended to cover every field the new block layouts surface.
+        ["title", "name", "sub", "handle", "score", "source", "category", "desc",
+         "stage", "funding", "region", "niche", "cat", "sim", "followers", "platform",
+         "eng", "engagement_pct", "engShort", "cpm", "fair", "impr", "alpha",
+         "alpha_score", "match_score", "total_score", "rank", "camps", "top",
+         "best", "role", "audience", "insight", "hook", "who", "fmt", "format",
+         "angle", "label", "value", "views", "share", "note", "tactic", "channel",
+         "kol_handle", "segments", "metadata", "estimated_market_cost"].forEach(function (k) {
           if (it[k] != null) o[k] = it[k];
         });
         return o;
@@ -1598,6 +1755,9 @@
       return {
         key: spec.key, evtype: spec.evtype, step: spec.step,
         title: spec.title, sub: spec.sub, kind: spec.kind,
+        insight: spec.insight != null ? spec.insight : undefined,
+        segments: Array.isArray(spec.segments) ? spec.segments : undefined,
+        donutValue: spec.donutValue, donutLabel: spec.donutLabel,
         lat: spec.lat != null ? spec.lat : null,
         items: items,
       };
@@ -2084,99 +2244,158 @@
         ? '<span class="it-alpha">α ' + escapeHtml(String(Math.round(a))) + "</span>" : "";
     }
 
-    // 1) competitor_landscape — MARK square + name + category desc + funding chip + sim% badge
+    // resolve a sim/score field to an integer percentage (0–1 → *100, else round).
+    function simPct(it) {
+      var raw = (it.sim != null) ? it.sim : (it.score != null ? it.score : null);
+      if (raw == null) return null;
+      var v = Number(raw);
+      if (!isFinite(v)) return null;
+      return v <= 1 ? Math.round(v * 100) : Math.round(v);
+    }
+
+    // 1) competitor_landscape — designer competitors grid item (.cmp):
+    //    row1 = MARK square + name + "{stage} · {funding}" + sim pill;
+    //    desc paragraph; then "Similarity to you" label + pbar fill.
+    //    Lead item (i===0) carries the accent border + glow ring.
     function renderCompetitor(it, i) {
       var nameRaw = it.name || it.title || it.category || "Competitor";
       var name = escapeHtml(String(nameRaw).replace(/\s+/g, " ").slice(0, 90));
-      var desc = it.category || it.desc || it.niche || "";
-      var descHtml = desc ? '<div class="it-sub">' + escapeHtml(String(desc).slice(0, 90)) + "</div>" : "";
-      var chips = [];
-      if (it.funding) chips.push('<span class="it-chip">' + escapeHtml(String(it.funding).slice(0, 24)) + "</span>");
-      if (it.region) chips.push('<span class="it-chip">' + escapeHtml(String(it.region).slice(0, 24)) + "</span>");
-      var meta = chips.length ? '<div class="it-meta">' + chips.join("") + "</div>" : "";
-      // sim% badge: sim is 0–1 → percent; score (0–1 or 0–100) handled gracefully.
-      var simRaw = (it.sim != null) ? it.sim : (it.score != null ? it.score : null);
-      var simHtml = "";
-      if (simRaw != null) {
-        var sv = Number(simRaw);
-        if (isFinite(sv)) {
-          var pct = sv <= 1 ? Math.round(sv * 100) : Math.round(sv);
-          simHtml = '<span class="it-sim">' + escapeHtml(String(pct)) + "%</span>";
-        }
+      // sub line: stage · funding (fallback to "—" so the row never collapses)
+      var stage = it.stage || it.region || "";
+      var funding = it.funding || "";
+      var subBits = [];
+      if (stage) subBits.push(String(stage).slice(0, 24));
+      if (funding) subBits.push(String(funding).slice(0, 24));
+      var subTxt = subBits.length ? subBits.join(" · ") : "—";
+      var pct = simPct(it);
+      var simPill = pct != null
+        ? '<span class="pill accent cmp-sim">' + escapeHtml(String(pct)) + "%</span>" : "";
+      // desc paragraph — category / desc / niche (kept short, fixed min height)
+      var desc = it.desc || it.category || it.niche || "";
+      var descHtml = '<p class="cmp-desc">' + escapeHtml(String(desc).slice(0, 140)) + "</p>";
+      // similarity bar (only when we have a percentage)
+      var barHtml = "";
+      if (pct != null) {
+        barHtml =
+          '<div class="cmp-barrow"><span>Similarity to you</span><span>' + escapeHtml(String(pct)) + "%</span></div>" +
+          '<div class="pbar"><i style="width:' + pct + '%"></i></div>';
       }
-      return '<div class="card-item kind-competitor" style="--d:' + itemDelay(i) + 'ms">' +
-        markSquare(nameRaw, i) +
-        '<div class="it-main"><span class="it-title">' + name + "</span>" + descHtml + meta + "</div>" +
-        simHtml +
+      var lead = i === 0 ? " is-lead" : "";
+      return '<div class="cmp rin' + lead + '" style="--d:' + itemDelay(i) + 'ms">' +
+        '<div class="cmp-row">' +
+          markSquare(nameRaw, i) +
+          '<div class="cmp-main"><span class="cmp-name">' + name + "</span>" +
+            '<span class="cmp-sub">' + escapeHtml(subTxt) + "</span></div>" +
+          simPill +
+        "</div>" +
+        descHtml + barHtml +
       "</div>";
     }
 
-    // 2) similar_creators / kol_profile / content_hits — rich creator row:
-    //    round real avatar (letter fallback) + name/@handle + niche cat + chips + α badge
+    // one metric cell of the creator-row trio: value over label.
+    function metricCell(val, label) {
+      if (val == null || val === "") return "";
+      return '<div class="crv-m"><span class="crv-mv tnum">' + escapeHtml(String(val)) +
+        '</span><span class="crv-ml">' + escapeHtml(label) + "</span></div>";
+    }
+
+    // 2) similar_creators / kol_profile / content_hits — designer creator row (.crv):
+    //    Avatar + (name + "Most used"/"{camps}× used" pill; sub = handle · platform ·
+    //    followers · cat) + right metric trio (CPM / impressions / engagement).
+    //    Top item (it.top or i===0) → accent border + "Most used" pill.
     function renderCreator(it, i) {
       var nameRaw = it.name || it.handle || it.title || it.text || "Creator";
-      var name = escapeHtml(String(nameRaw).replace(/\s+/g, " ").slice(0, 90));
-      var subBits = [];
-      if (it.handle) subBits.push("@" + String(it.handle).replace(/^@/, ""));
-      if (it.niche) subBits.push(String(it.niche));
-      if (it.region) subBits.push(String(it.region));
-      var sub = subBits.length
-        ? '<div class="it-sub">' + escapeHtml(subBits.join(" · ").slice(0, 90)) + "</div>" : "";
-      var chips = [];
-      if (it.platform) chips.push('<span class="it-chip">' + escapeHtml(String(it.platform).slice(0, 18)) + "</span>");
-      if (it.followers != null && it.followers !== "") {
-        var f = fmtNum(it.followers);
-        if (f) chips.push('<span class="it-chip">' + escapeHtml(f) + " followers</span>");
-      }
-      if (it.engagement_pct != null && it.engagement_pct !== "") {
-        chips.push('<span class="it-chip eng">' + escapeHtml(String(it.engagement_pct)) + "% eng</span>");
-      }
-      // match%: prefer match_score (0–100); fall back to total_score / sim.
-      var matchRaw = (it.match_score != null) ? it.match_score
-        : (it.total_score != null) ? it.total_score
-        : (it.sim != null) ? it.sim : null;
-      if (matchRaw != null) {
-        var mf = fmtScore(matchRaw);
-        if (mf != null) chips.push('<span class="it-chip score">match ' + escapeHtml(mf) + "</span>");
-      }
-      var meta = chips.length ? '<div class="it-meta">' + chips.join("") + "</div>" : "";
-      return '<div class="card-item kind-creator" style="--d:' + itemDelay(i) + 'ms">' +
-        itemAvatar(it) +
-        '<div class="it-main"><span class="it-title">' + name + "</span>" + sub + meta + "</div>" +
-        alphaBadge(it) +
-      "</div>";
-    }
-
-    // 3) alpha_ranking — leaderboard: rank no. + avatar + name + est. cost chip + α badge
-    function renderLeaderboard(it, i) {
-      var nameRaw = it.name || it.handle || it.title || "Creator";
       var name = escapeHtml(String(nameRaw).replace(/\s+/g, " ").slice(0, 80));
-      var rank = escapeHtml(String(i + 1).padStart ? String(i + 1).padStart(2, "0") : ("0" + (i + 1)).slice(-2));
-      var costHtml = "";
-      if (it.estimated_market_cost != null && it.estimated_market_cost !== "") {
-        costHtml = '<span class="it-chip cost">est. ' + escapeHtml(fmtCost(it.estimated_market_cost)) + "</span>";
-      }
-      // score column: alpha_score preferred, then score / total_score.
-      var sc = alphaVal(it);
-      var scoreBadge = "";
-      if (sc != null) {
-        scoreBadge = '<span class="it-alpha">α ' + escapeHtml(String(Math.round(sc))) + "</span>";
-      } else {
-        var raw = (it.score != null) ? it.score : (it.total_score != null ? it.total_score : null);
-        var sf = raw != null ? fmtScore(raw) : null;
-        if (sf != null) scoreBadge = '<span class="it-alpha">' + escapeHtml(sf) + "</span>";
-      }
+      var isTop = it.top === true || i === 0;
+      // badge: top → "Most used"; else "{camps}× used" when we have a camp count.
+      var badge = "";
+      if (isTop) badge = '<span class="pill accent crv-badge">Most used</span>';
+      else if (it.camps != null && it.camps !== "")
+        badge = '<span class="pill crv-badge">' + escapeHtml(String(it.camps)) + "× used</span>";
+      // sub: handle · platform · followers · cat
       var subBits = [];
       if (it.handle) subBits.push("@" + String(it.handle).replace(/^@/, ""));
       if (it.platform) subBits.push(String(it.platform));
+      if (it.followers != null && it.followers !== "") {
+        var f = fmtNum(it.followers);
+        if (f) subBits.push(f + " followers");
+      }
+      if (it.cat || it.niche) subBits.push(String(it.cat || it.niche));
       var sub = subBits.length
-        ? '<div class="it-sub">' + escapeHtml(subBits.join(" · ").slice(0, 70)) + "</div>" : "";
-      var costRow = costHtml ? '<div class="it-meta">' + costHtml + "</div>" : "";
-      return '<div class="card-item kind-rank" style="--d:' + itemDelay(i) + 'ms">' +
-        '<span class="it-rank">' + rank + "</span>" +
+        ? '<span class="crv-sub">' + escapeHtml(subBits.join(" · ").slice(0, 90)) + "</span>" : "";
+      // metric trio: cpm / impressions / engagement (eng / engagement_pct accepted)
+      var cpm = it.cpm != null ? (typeof it.cpm === "number" ? "$" + it.cpm : it.cpm) : null;
+      var impr = it.impr != null ? fmtNum(it.impr) : null;
+      var engRaw = (it.eng != null) ? it.eng : (it.engagement_pct != null ? it.engagement_pct : null);
+      var eng = engRaw != null ? engRaw + "%" : null;
+      var trio = metricCell(cpm, "CPM") + metricCell(impr, "impressions") + metricCell(eng, "engagement");
+      var trioHtml = trio ? '<div class="crv-trio">' + trio + "</div>" : "";
+      return '<div class="crv rin' + (isTop ? " is-top" : "") + '" style="--d:' + itemDelay(i) + 'ms">' +
         itemAvatar(it) +
-        '<div class="it-main"><span class="it-title">' + name + "</span>" + sub + costRow + "</div>" +
-        scoreBadge +
+        '<div class="crv-main"><span class="crv-namerow"><span class="crv-name">' + name + "</span>" + badge + "</span>" + sub + "</div>" +
+        trioHtml +
+      "</div>";
+    }
+
+    // raw alpha multiplier (e.g. 2.7×) — distinct from the 0–100 alpha_score.
+    // accepts a literal `alpha` (float), else derives score/100*~3 only when an
+    // alpha_score exists, so a missing field yields null (no fabricated number).
+    function alphaMult(it) {
+      if (it.alpha != null && it.alpha !== "") {
+        var a = Number(it.alpha);
+        if (isFinite(a) && a < 100) return a; // a bare 0–100 is a score, not a ×
+      }
+      return null;
+    }
+
+    // 3) alpha_ranking — designer leaderboard block (.lb): 4-col grid header
+    //    (Creator | Your CPM | Market CPM | Alpha Score) + ranked rows. The whole
+    //    table is built by renderAlphaBoard; renderLeaderboard emits ONE row.
+    function renderAlphaBoard(items) {
+      // compute max alpha (× preferred, else score) for the mini-bar scaling.
+      var vals = items.map(function (it) {
+        var m = alphaMult(it); return m != null ? m : (alphaVal(it) || 0);
+      });
+      var maxA = Math.max.apply(null, vals.concat([0.0001]));
+      var head =
+        '<div class="lb-head">' +
+          '<span class="lb-th">Creator</span>' +
+          '<span class="lb-th num">Your CPM</span>' +
+          '<span class="lb-th num">Market CPM</span>' +
+          '<span class="lb-th num">Alpha Score</span>' +
+        "</div>";
+      var rows = items.map(function (it, i) { return renderLeaderboard(it, i, maxA); }).join("");
+      return '<div class="lb">' + head + rows + "</div>";
+    }
+
+    function renderLeaderboard(it, i, maxA) {
+      it = it || {};
+      var nameRaw = it.name || it.handle || it.title || "Creator";
+      var name = escapeHtml(String(nameRaw).replace(/\s+/g, " ").slice(0, 60));
+      var handle = it.handle ? '<span class="lb-handle">@' + escapeHtml(String(it.handle).replace(/^@/, "").slice(0, 24)) + "</span>" : "";
+      // Your CPM (cpm) + Market/fair CPM (fair) columns
+      var cpmTxt = it.cpm != null && it.cpm !== "" ? "$" + escapeHtml(String(it.cpm)) : "—";
+      var fairTxt = it.fair != null && it.fair !== "" ? "$" + escapeHtml(String(it.fair)) : "—";
+      // alpha column: × multiplier preferred, else 0–100 score badge.
+      var mult = alphaMult(it);
+      var scoreA = alphaVal(it);
+      var aVal = mult != null ? mult : (scoreA != null ? scoreA : 0);
+      var maxBar = maxA && isFinite(maxA) ? maxA : 1;
+      var barPct = Math.max(4, Math.min(100, Math.round((aVal / maxBar) * 100)));
+      var isTop = mult != null ? mult >= 2.6 : (scoreA != null && scoreA >= 84);
+      var alphaLabel = mult != null ? mult.toFixed(2) + "×"
+        : (scoreA != null ? "α " + Math.round(scoreA) : "—");
+      var alphaCell =
+        '<span class="lb-alpha">' +
+          '<span class="lb-bar' + (isTop ? " gold" : "") + '"><i style="width:' + barPct + '%"></i></span>' +
+          '<span class="lb-av' + (isTop ? " gold" : "") + '">' + escapeHtml(alphaLabel) + "</span>" +
+        "</span>";
+      return '<div class="lb-row' + (isTop ? " is-top" : "") + '" style="--d:' + itemDelay(i) + 'ms">' +
+        '<span class="lb-name">' + itemAvatar(it) +
+          '<span class="lb-nt"><span class="lb-nm">' + name + "</span>" + handle + "</span></span>" +
+        '<span class="lb-c num">' + cpmTxt + "</span>" +
+        '<span class="lb-c num pos">' + fairTxt + "</span>" +
+        alphaCell +
       "</div>";
     }
 
@@ -2233,9 +2452,155 @@
       "</div>";
     }
 
+    // ------------------------------------------------------------
+    // DESIGNER BLOCK RENDERERS — channel bars / content angles / bundle / donut.
+    // Each builds a custom DOM from the spec items; reached via renderCardBody.
+    // ------------------------------------------------------------
+    var BAR_HUES = [258, 200, 30, 160, 320, 90];
+
+    // content_hits → channel-bar series ONLY when items aggregate into a
+    // value-bearing distribution. Items may carry an explicit {label,value,note}
+    // OR a kol_handle→views shape we can turn into share-of-views. Returns [] when
+    // the payload is narrative (single insight row) so we fall back to creator rows.
+    function channelSeries(items) {
+      var rows = [];
+      items.forEach(function (it) {
+        it = it || {};
+        var label = it.label || it.channel || it.kol_handle || it.handle || it.name || it.platform;
+        var valRaw = (it.value != null) ? it.value
+          : (it.views != null) ? it.views
+          : (it.share != null) ? it.share : null;
+        if (!label || valRaw == null) return;
+        var v = Number(valRaw);
+        if (!isFinite(v)) return;
+        rows.push({ label: String(label), value: v, note: it.note || it.tactic || "" });
+      });
+      // need at least 2 measurable channels to read as a distribution
+      return rows.length >= 2 ? rows : [];
+    }
+
+    function renderChannelBars(rows) {
+      var max = Math.max.apply(null, rows.map(function (r) { return r.value; }).concat([0.0001]));
+      // normalise to % share when values look like raw counts (>100), else use as-is
+      var asPct = max > 100;
+      var bars = rows.map(function (r, i) {
+        var pct = asPct ? Math.round((r.value / max) * 100) : Math.max(2, Math.min(100, Math.round(r.value)));
+        var hue = BAR_HUES[i % BAR_HUES.length];
+        var label = asPct ? pct + "%" : Math.round(r.value) + "%";
+        var note = r.note ? '<span class="chb-note">' + escapeHtml(String(r.note).slice(0, 40)) + "</span>" : "";
+        return '<div class="chb-row" style="--d:' + itemDelay(i) + 'ms">' +
+          '<span class="chb-label">' + escapeHtml(String(r.label).slice(0, 22)) + "</span>" +
+          '<span class="chb-track"><i style="width:' + pct + "%;--bh:" + hue + '"><b>' + escapeHtml(label) + "</b></i></span>" +
+          note +
+        "</div>";
+      }).join("");
+      return '<div class="chb">' + bars + "</div>";
+    }
+
+    // content_strategy → content angle grid (.cag): icon chip + angle + who·fmt,
+    // then hook (accent) + title. Falls back to title-only when hook absent.
+    var ANGLE_ICONS = ["⤳", "⚡", "▦", "◍"];
+    function renderContentAngles(items) {
+      var cards = items.map(function (it, i) {
+        it = it || {};
+        var angle = escapeHtml(String(it.angle || it.title || it.name || "Angle").slice(0, 60));
+        var whoBits = [];
+        if (it.who || it.sub) whoBits.push(String(it.who || it.sub));
+        if (it.fmt || it.format) whoBits.push(String(it.fmt || it.format));
+        var who = whoBits.length ? '<span class="cag-who">' + escapeHtml(whoBits.join(" · ").slice(0, 48)) + "</span>" : "";
+        var icon = ANGLE_ICONS[i % ANGLE_ICONS.length];
+        var hue = BAR_HUES[i % BAR_HUES.length];
+        var hook = it.hook ? '<p class="cag-hook">' + escapeHtml(String(it.hook).slice(0, 120)) + "</p>" : "";
+        var titleLine = (it.hook && (it.title || it.angle))
+          ? '<p class="cag-t">' + escapeHtml(String(it.title || "").slice(0, 90)) + "</p>" : "";
+        return '<div class="cag rin" style="--d:' + itemDelay(i) + 'ms">' +
+          '<div class="cag-head"><span class="cag-ic" style="--bh:' + hue + '">' + icon + "</span>" +
+            '<div class="cag-ht"><span class="cag-angle">' + angle + "</span>" + who + "</div></div>" +
+          hook + titleLine +
+        "</div>";
+      }).join("");
+      return '<div class="cag-grid">' + cards + "</div>";
+    }
+
+    // bundle → recommend grid (.bnd): member cards with avatar + name + platform,
+    // role line, KV table (Followers/Impressions/CPM/Engagement/Audience/Alpha).
+    function renderBundle(items) {
+      var ROWS = [
+        ["Followers", function (it) { return it.followers != null ? fmtNum(it.followers) : null; }],
+        ["Impressions", function (it) { return it.impr != null ? fmtNum(it.impr) : null; }],
+        ["CPM", function (it) { return it.cpm != null ? "$" + it.cpm : null; }],
+        ["Engagement", function (it) { var e = it.engShort != null ? it.engShort : (it.eng != null ? it.eng + "%" : null); return e; }],
+        ["Audience", function (it) { return it.audience != null ? it.audience : null; }],
+        ["Alpha", function (it) { var m = alphaMult(it); return m != null ? m.toFixed(2) + "×" : (alphaVal(it) != null ? "α " + Math.round(alphaVal(it)) : null); }, true],
+      ];
+      var cards = items.map(function (it, i) {
+        it = it || {};
+        var nameRaw = it.name || it.title || it.handle || "Creator";
+        var name = escapeHtml(String(nameRaw).replace(/\s+/g, " ").slice(0, 40));
+        var plat = it.platform ? '<span class="bnd-plat">' + escapeHtml(String(it.platform).slice(0, 18)) + "</span>" : "";
+        var roleRaw = it.role || it.sub || "";
+        var role = roleRaw ? '<div class="bnd-role">' + escapeHtml(String(roleRaw).slice(0, 48)) + "</div>" : "";
+        var isBest = it.best === true || i === 0;
+        var kv = ROWS.map(function (r) {
+          var v = r[1](it);
+          if (v == null || v === "") return "";
+          return '<div class="bnd-kv' + (r[2] ? " hl" : "") + '"><span class="bnd-k">' + escapeHtml(r[0]) +
+            '</span><span class="bnd-v">' + escapeHtml(String(v)) + "</span></div>";
+        }).join("");
+        return '<div class="bnd rin' + (isBest ? " is-best" : "") + '" style="--d:' + itemDelay(i) + 'ms">' +
+          '<div class="bnd-head">' + itemAvatar(it) +
+            '<div class="bnd-id"><span class="bnd-name">' + name + "</span>" + plat + "</div></div>" +
+          role + (kv ? '<div class="bnd-kvs">' + kv + "</div>" : "") +
+        "</div>";
+      }).join("");
+      return '<div class="bnd-grid">' + cards + "</div>";
+    }
+
+    // kol_profile → SVG donut of the audience breakdown + quality KV grid.
+    // Returns "" when there aren't ≥2 measurable segments (spec fallback:
+    // skip donut, show quality / creator row only).
+    function renderDonut(spec, items) {
+      var segs = Array.isArray(spec.segments) ? spec.segments : [];
+      // also accept segments riding on the lead item
+      if (!segs.length && items[0] && Array.isArray(items[0].segments)) segs = items[0].segments;
+      var clean = segs.map(function (s) {
+        s = s || {};
+        var v = Number(s.value);
+        return (s.label && isFinite(v)) ? { label: String(s.label), value: v } : null;
+      }).filter(Boolean);
+      if (clean.length < 2) return "";
+      var total = clean.reduce(function (a, s) { return a + s.value; }, 0) || 1;
+      var R = 70, C = 2 * Math.PI * R, off = 0;
+      var rings = clean.map(function (s, i) {
+        var frac = s.value / total;
+        var hue = BAR_HUES[i % BAR_HUES.length];
+        var dash = (frac * C - 3) + " " + C;
+        var seg = '<circle cx="92" cy="92" r="' + R + '" fill="none" stroke="oklch(0.68 0.115 ' + hue +
+          ')" stroke-width="18" stroke-dasharray="' + dash + '" stroke-dashoffset="' + (-off * C) + '"/>';
+        off += frac;
+        return seg;
+      }).join("");
+      var center = spec.donutValue || (Math.round((clean[0].value / total) * 100) + "%");
+      var centerLabel = spec.donutLabel || "ICP match";
+      var legend = clean.map(function (s, i) {
+        var hue = BAR_HUES[i % BAR_HUES.length];
+        var pct = Math.round((s.value / total) * 100);
+        return '<div class="dn-leg"><span class="dn-dot" style="background:oklch(0.68 0.115 ' + hue + ')"></span>' +
+          '<span class="dn-ll">' + escapeHtml(s.label.slice(0, 22)) + '</span><span class="dn-lv">' + pct + "%</span></div>";
+      }).join("");
+      var svg = '<svg class="dn-svg" viewBox="0 0 184 184" aria-hidden="true">' +
+        '<circle cx="92" cy="92" r="' + R + '" fill="none" stroke="var(--stroke)" stroke-width="18"/>' +
+        '<g transform="rotate(-90 92 92)">' + rings + "</g>" +
+        '<text x="92" y="88" class="dn-cv" text-anchor="middle">' + escapeHtml(center) + "</text>" +
+        '<text x="92" y="108" class="dn-cl" text-anchor="middle">' + escapeHtml(centerLabel) + "</text>" +
+      "</svg>";
+      return '<div class="dn"><div class="dn-chart">' + svg + '</div><div class="dn-legend">' + legend + "</div></div>";
+    }
+
     // kind dispatcher — `evtype` is the evidence discriminator (events.py type),
     // not the display label. Missing/unknown → generic. Every branch is
-    // field-safe (undefined never reaches the DOM).
+    // field-safe (undefined never reaches the DOM). alpha_ranking rows are built
+    // by renderAlphaBoard (block layout) so they fall through to generic here.
     function renderItem(it, i, evtype) {
       it = it || {};
       switch (evtype) {
@@ -2243,7 +2608,6 @@
         case "similar_creators":
         case "kol_profile":
         case "content_hits":         return renderCreator(it, i);
-        case "alpha_ranking":        return renderLeaderboard(it, i);
         default:                     return renderGeneric(it, i);
       }
     }
@@ -2276,9 +2640,10 @@
         return '<li class="' + (s.res ? "res" : "") + '">' + escapeHtml(s.t || "") + "</li>";
       }).join("");
       c.innerHTML = head + "<ul>" + lis + "</ul>";
+      var stickC = streamNearBottom();
       els.stream.appendChild(c);
       activeChain = c;
-      els.stream.scrollTop = els.stream.scrollHeight;
+      streamFollow(stickC);
     }
 
     // build the inner HTML of a card (head + optional body). `count` (>1) draws
@@ -2326,11 +2691,38 @@
       "</div>";
     }
 
+    // insight footnote bar (designer's "The pattern …" strip). Surfaced when the
+    // card carries a `spec.insight` OR the lead item supplies an item-level
+    // `insight` string (our seed payloads put it on items). Optional k/v/note
+    // object shape is also honoured. Returns "" when there's nothing to show.
+    function insightFootnote(spec) {
+      var ins = spec.insight;
+      // pull a string insight off the first item when the card itself lacks one
+      if (ins == null) {
+        var first = (Array.isArray(spec.items) ? spec.items : [])[0] || {};
+        if (first.insight != null) ins = first.insight;
+      }
+      if (ins == null || ins === "") return "";
+      var k = "The pattern", v = "", note = "";
+      if (typeof ins === "object") {
+        k = ins.k || k; v = ins.v || ""; note = ins.note || "";
+      } else {
+        v = String(ins);
+      }
+      return '<div class="card-insight">' +
+        '<span class="ci-k">' + escapeHtml(String(k).slice(0, 40)) + "</span>" +
+        '<span class="ci-v">' + escapeHtml(String(v).slice(0, 120)) + "</span>" +
+        (note ? '<span class="ci-note">' + escapeHtml(String(note).slice(0, 80)) + "</span>" : "") +
+      "</div>";
+    }
+
     function cardInnerHtml(spec, count) {
       var latencyHtml = spec.lat != null ? '<span class="card-lat">' + spec.lat + "ms</span>" : "";
-      var kindHtml = spec.kind ? '<span class="card-kind">' + escapeHtml(spec.kind) + "</span>" : "";
       var countHtml = (count && count > 1) ? '<span class="card-count">x' + count + "</span>" : "";
 
+      // designer shell head: STEP badge (left, mono "01") → title + sub stacked.
+      // kind no longer renders a head badge (it only drives the body layout);
+      // count + latency stay as our HUD/refresh affordances on the right.
       var head =
         '<div class="card-head">' +
           '<span class="card-step">' + escapeHtml(fmtStep(spec.step)) + "</span>" +
@@ -2338,20 +2730,58 @@
             '<div class="card-title">' + escapeHtml(spec.title || "Retrieval") + "</div>" +
             (spec.sub ? '<div class="card-sub">' + escapeHtml(spec.sub) + "</div>" : "") +
           "</div>" +
-          kindHtml + countHtml + latencyHtml +
+          countHtml + latencyHtml +
         "</div>";
 
       // evtype is the evidence discriminator (events.py `type`); it drives the
       // kind-specific row layout. moss_context / un-typed specs → generic rows.
       var evtype = spec.evtype || "";
-      var items = (Array.isArray(spec.items) ? spec.items : []).slice(0, 6).map(function (it, i) {
+      var bodyInner = renderCardBody(spec, evtype);
+      var footnote = insightFootnote(spec);
+      var body = (bodyInner || footnote)
+        ? '<div class="card-body">' + bodyInner + footnote + "</div>" : "";
+      return head + body;
+    }
+
+    // Body dispatcher — routes to the kind-specific block layout. Channel-bar,
+    // donut, leaderboard, bundle, content and roi cards build a custom DOM;
+    // everything else falls back to the per-item row list (renderItem).
+    function renderCardBody(spec, evtype) {
+      var items = (Array.isArray(spec.items) ? spec.items : []).slice(0, 6);
+      // content_hits → channel-bar strip when items aggregate into a series,
+      // else creator rows (payload-adaptive per spec fallback).
+      if (evtype === "content_hits") {
+        var bars = channelSeries(items);
+        if (bars.length) return renderChannelBars(bars);
+      }
+      if (evtype === "content_strategy") return renderContentAngles(items);
+      if (evtype === "bundle")           return renderBundle(items);
+      if (evtype === "alpha_ranking")    return renderAlphaBoard(items);
+      if (evtype === "roi_forecast")     return roiSvg(spec) + rowList(items, "roi_forecast");
+      if (evtype === "kol_profile") {
+        var donut = renderDonut(spec, items);
+        if (donut) return donut + rowList(items, "kol_profile");
+      }
+      return rowList(items, evtype);
+    }
+
+    // shared per-item row list (creator / competitor / leaderboard / generic).
+    function rowList(items, evtype) {
+      return items.map(function (it, i) {
         return renderItem(it || {}, i, evtype);
       }).join("");
+    }
 
-      // ROI cards get a compact curve viz above the items list.
-      var roiHtml = (spec.kind === "roi") ? roiSvg(spec) : "";
-      var body = (roiHtml || items) ? '<div class="card-body">' + roiHtml + items + "</div>" : "";
-      return head + body;
+    // Sticky-bottom: only auto-follow new evidence when the user is already
+    // reading the live tail — never yank them back up while they scroll
+    // through earlier cards (the forced scrollTop=scrollHeight on every
+    // chain/card event made the rail feel "unscrollable" mid-session).
+    function streamNearBottom() {
+      var el = els.stream;
+      return el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+    }
+    function streamFollow(stick) {
+      if (stick) els.stream.scrollTop = els.stream.scrollHeight;
     }
 
     // track one live card per evidence type so repeat events of the same type
@@ -2363,23 +2793,25 @@
       var key = spec.key;
 
       if (key && cardByKey[key] && cardByKey[key].parentNode === els.stream) {
+        var stickU = streamNearBottom();
         var existing = cardByKey[key];
         existing._count = (existing._count || 1) + 1;
         existing.innerHTML = cardInnerHtml(spec, existing._count);
         existing.classList.remove("pulse");
         void existing.offsetWidth; // reflow so the pulse can replay
         existing.classList.add("pulse");
-        els.stream.scrollTop = els.stream.scrollHeight;
+        streamFollow(stickU);
         return;
       }
 
+      var stickA = streamNearBottom();
       var card = document.createElement("div");
       card.className = "card";
       card._count = 1;
       card.innerHTML = cardInnerHtml(spec, 1);
       els.stream.appendChild(card);
       if (key) cardByKey[key] = card;
-      els.stream.scrollTop = els.stream.scrollHeight;
+      streamFollow(stickA);
     }
 
     // ------------------------------------------------------------
