@@ -52,8 +52,18 @@ except ImportError as e:  # pragma: no cover - guidance only
 AGENT_DIR = Path(__file__).resolve().parent.parent
 # Path to the confidential pricing workbook is supplied via env var so the
 # source stays publishable (no asset name hardcoded). Point ANSIO_PRICING_XLSX
-# at your local, gitignored spreadsheet before running F1.
-XLSX_PATH = Path(os.environ.get("ANSIO_PRICING_XLSX", str(AGENT_DIR / "data" / "pricing.xlsx")))
+# at your local, gitignored spreadsheet before running F1. If unset, fall back
+# to a generically-named, gitignored local copy (never committed; the real
+# asset name is intentionally NOT hardcoded so this source stays publishable).
+_XLSX_CANDIDATES = [
+    os.environ.get("ANSIO_PRICING_XLSX"),
+    str(AGENT_DIR / "data" / "pricing.xlsx"),
+    str(AGENT_DIR.parent.parent.parent / "docs" / "pricing.xlsx"),
+]
+XLSX_PATH = next(
+    (Path(p) for p in _XLSX_CANDIDATES if p and Path(p).exists()),
+    Path(_XLSX_CANDIDATES[1]),  # default reported in the not-found message
+)
 BENCHMARK_OUT = AGENT_DIR / "benchmark_agg.json"  # gitignored
 
 # ---------------------------------------------------------------------------
@@ -64,6 +74,7 @@ BENCHMARK_OUT = AGENT_DIR / "benchmark_agg.json"  # gitignored
 # kols.json KOL_NICHES whitelist. Every real KOL here is an AI-coding creator,
 # so they all collapse to "tech" (the niche that carries coding/AI/software).
 NICHE_FOR_CATEGORY_DEFAULT = "tech"
+
 
 # tier thresholds — identical to gen_kols.tier_for (single source of truth would
 # be nicer, but gen_kols has no importable helper without side effects; kept in
@@ -265,6 +276,7 @@ def _iter_rows(ws):
     idx = _header_index(header)
     if idx["name"] is None:
         return
+
     def _cell(row, key):
         i = idx[key]
         return row[i] if i is not None and i < len(row) else None
@@ -458,9 +470,21 @@ def real_kols() -> list[dict]:
                 "followers": followers,
                 "tier": tier_for(followers),
                 "brands": parse_brands(row.get("note")),
+                # PUBLIC avatar: the creator's real YouTube face via unavatar
+                # (handle is public; pricing never crosses into this dict).
+                "avatar_url": _avatar_for(handle, name),
             }
         )
     return out
+
+
+def _avatar_for(handle: str, name: str) -> str:
+    """Real public YouTube avatar URL for a real KOL (no network at build)."""
+    try:
+        from avatar import avatar_url
+    except ImportError:  # pragma: no cover - run from elsewhere
+        from src.avatar import avatar_url  # type: ignore
+    return avatar_url(handle, "YouTube", name)
 
 
 # ---------------------------------------------------------------------------
@@ -490,20 +514,22 @@ def _self_check() -> int:
     bad = [k for k in kols if price_keys & set(k)]
     if bad:
         ok = False
-        print(f"  [FAIL] pricing field present in real_kols: {price_keys & set(bad[0])}")
+        print(
+            f"  [FAIL] pricing field present in real_kols: {price_keys & set(bad[0])}"
+        )
     else:
         print(f"  [PASS] no pricing field in real_kols ({len(kols)} entries)")
 
     # benchmark cells must be aggregates (n>=1, only group stats).
     forbidden = {"name", "handle", "link"}
-    cell_bad = [
-        c for c in bench["cells"].values() if forbidden & set(c)
-    ]
+    cell_bad = [c for c in bench["cells"].values() if forbidden & set(c)]
     if cell_bad:
         ok = False
         print(f"  [FAIL] individual identifier in benchmark cell: {cell_bad[0]}")
     else:
-        print(f"  [PASS] benchmark cells are aggregate-only ({len(bench['cells'])} cells)")
+        print(
+            f"  [PASS] benchmark cells are aggregate-only ({len(bench['cells'])} cells)"
+        )
 
     print("RESULT:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
@@ -515,11 +541,15 @@ def main() -> None:
 
     bench = write_benchmark()
     print(f"Wrote {BENCHMARK_OUT} (gitignored)")
-    print(f"  cells: {len(bench['cells'])}  global CPM median: {bench['global']['cpm_median']}")
+    print(
+        f"  cells: {len(bench['cells'])}  global CPM median: {bench['global']['cpm_median']}"
+    )
     for key, c in sorted(bench["cells"].items()):
         line = f"  {key}: n={c['n']}"
         if "cpm_median" in c:
-            line += f"  cpm_med={c['cpm_median']} (p25={c['cpm_p25']}/p75={c['cpm_p75']})"
+            line += (
+                f"  cpm_med={c['cpm_median']} (p25={c['cpm_p25']}/p75={c['cpm_p75']})"
+            )
         if "price_band_median" in c:
             line += f"  price=${c['price_band_low']}-${c['price_band_high']}"
         print(line)
@@ -528,7 +558,9 @@ def main() -> None:
     print(f"\nReal KOLs available for injection: {len(kols)}")
     if "--print-kols" in sys.argv:
         for k in kols:
-            print(f"  {k['name'][:24]:24} @{k['handle']:20} {k['tier']:5} {k['followers']:>9,}  brands={k['brands']}")
+            print(
+                f"  {k['name'][:24]:24} @{k['handle']:20} {k['tier']:5} {k['followers']:>9,}  brands={k['brands']}"
+            )
 
 
 if __name__ == "__main__":

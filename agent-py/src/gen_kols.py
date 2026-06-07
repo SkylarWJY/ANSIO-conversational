@@ -18,6 +18,13 @@ import json
 import random
 from pathlib import Path
 
+try:
+    from avatar import avatar_url
+    from kol_scoring import precompute_scores
+except ImportError:  # pragma: no cover - run from elsewhere
+    from src.avatar import avatar_url  # type: ignore
+    from src.kol_scoring import precompute_scores  # type: ignore
+
 OUT_PATH = Path(__file__).resolve().parent.parent / "kols.json"
 SEED = 42
 N = 1000
@@ -28,24 +35,128 @@ PLATFORM_WEIGHTS = [0.24, 0.26, 0.24, 0.1, 0.06, 0.06, 0.04]
 
 # niche -> keyword bag woven into the profile text so semantic queries hit.
 NICHES = {
-    "tech": ["technology", "gadgets", "software", "AI", "coding", "consumer electronics", "product reviews"],
-    "gaming": ["video games", "esports", "live streaming", "game reviews", "let's plays", "FPS", "RPG"],
-    "beauty": ["makeup", "skincare", "cosmetics", "beauty tutorials", "GRWM", "product hauls"],
-    "fashion": ["style", "outfits", "OOTD", "streetwear", "luxury fashion", "thrift hauls"],
-    "fitness": ["workout", "gym", "bodybuilding", "home workouts", "nutrition", "weight loss", "wellness"],
-    "food": ["cooking", "recipes", "restaurant reviews", "baking", "mukbang", "food challenges"],
-    "finance": ["personal finance", "investing", "stocks", "budgeting", "side hustles", "FIRE", "money tips"],
-    "travel": ["travel vlogs", "destinations", "backpacking", "luxury travel", "travel tips", "digital nomad"],
-    "education": ["study tips", "science explainers", "language learning", "tutorials", "edutainment"],
-    "music": ["singing", "covers", "music production", "instrument tutorials", "songwriting"],
+    "tech": [
+        "technology",
+        "gadgets",
+        "software",
+        "AI",
+        "coding",
+        "consumer electronics",
+        "product reviews",
+    ],
+    "gaming": [
+        "video games",
+        "esports",
+        "live streaming",
+        "game reviews",
+        "let's plays",
+        "FPS",
+        "RPG",
+    ],
+    "beauty": [
+        "makeup",
+        "skincare",
+        "cosmetics",
+        "beauty tutorials",
+        "GRWM",
+        "product hauls",
+    ],
+    "fashion": [
+        "style",
+        "outfits",
+        "OOTD",
+        "streetwear",
+        "luxury fashion",
+        "thrift hauls",
+    ],
+    "fitness": [
+        "workout",
+        "gym",
+        "bodybuilding",
+        "home workouts",
+        "nutrition",
+        "weight loss",
+        "wellness",
+    ],
+    "food": [
+        "cooking",
+        "recipes",
+        "restaurant reviews",
+        "baking",
+        "mukbang",
+        "food challenges",
+    ],
+    "finance": [
+        "personal finance",
+        "investing",
+        "stocks",
+        "budgeting",
+        "side hustles",
+        "FIRE",
+        "money tips",
+    ],
+    "travel": [
+        "travel vlogs",
+        "destinations",
+        "backpacking",
+        "luxury travel",
+        "travel tips",
+        "digital nomad",
+    ],
+    "education": [
+        "study tips",
+        "science explainers",
+        "language learning",
+        "tutorials",
+        "edutainment",
+    ],
+    "music": [
+        "singing",
+        "covers",
+        "music production",
+        "instrument tutorials",
+        "songwriting",
+    ],
     "comedy": ["sketches", "stand-up", "memes", "parody", "relatable humor"],
-    "lifestyle": ["daily vlogs", "productivity", "minimalism", "self-improvement", "routines"],
-    "parenting": ["motherhood", "family vlogs", "kids activities", "parenting tips", "pregnancy"],
-    "automotive": ["cars", "car reviews", "detailing", "EVs", "motorsport", "garage builds"],
-    "business": ["entrepreneurship", "startups", "marketing", "SaaS", "B2B", "career growth"],
+    "lifestyle": [
+        "daily vlogs",
+        "productivity",
+        "minimalism",
+        "self-improvement",
+        "routines",
+    ],
+    "parenting": [
+        "motherhood",
+        "family vlogs",
+        "kids activities",
+        "parenting tips",
+        "pregnancy",
+    ],
+    "automotive": [
+        "cars",
+        "car reviews",
+        "detailing",
+        "EVs",
+        "motorsport",
+        "garage builds",
+    ],
+    "business": [
+        "entrepreneurship",
+        "startups",
+        "marketing",
+        "SaaS",
+        "B2B",
+        "career growth",
+    ],
     "crypto": ["cryptocurrency", "bitcoin", "web3", "DeFi", "NFTs", "blockchain"],
     "art": ["digital art", "illustration", "painting", "design", "animation", "crafts"],
-    "sustainability": ["eco-friendly", "zero waste", "climate", "sustainable living", "green tech"],
+    "sustainability": [
+        "eco-friendly",
+        "zero waste",
+        "climate",
+        "sustainable living",
+        "green tech",
+    ],
     "home": ["interior design", "home decor", "DIY", "organization", "renovation"],
     "pets": ["dogs", "cats", "pet care", "animal rescue", "training tips"],
 }
@@ -69,22 +180,109 @@ REGIONS = {
 }
 
 FIRST = [
-    "Alex", "Jordan", "Taylor", "Morgan", "Riley", "Casey", "Jamie", "Avery", "Quinn", "Sky",
-    "Maya", "Liam", "Noah", "Emma", "Olivia", "Sophia", "Lucas", "Mia", "Ethan", "Zoe",
-    "Aria", "Kai", "Leo", "Nina", "Ravi", "Priya", "Chen", "Yuki", "Hana", "Diego",
-    "Lena", "Marco", "Sofia", "Omar", "Aisha", "Mateo", "Ana", "Hugo", "Ivy", "Theo",
+    "Alex",
+    "Jordan",
+    "Taylor",
+    "Morgan",
+    "Riley",
+    "Casey",
+    "Jamie",
+    "Avery",
+    "Quinn",
+    "Sky",
+    "Maya",
+    "Liam",
+    "Noah",
+    "Emma",
+    "Olivia",
+    "Sophia",
+    "Lucas",
+    "Mia",
+    "Ethan",
+    "Zoe",
+    "Aria",
+    "Kai",
+    "Leo",
+    "Nina",
+    "Ravi",
+    "Priya",
+    "Chen",
+    "Yuki",
+    "Hana",
+    "Diego",
+    "Lena",
+    "Marco",
+    "Sofia",
+    "Omar",
+    "Aisha",
+    "Mateo",
+    "Ana",
+    "Hugo",
+    "Ivy",
+    "Theo",
 ]
 LAST = [
-    "Reed", "Cruz", "Park", "Lee", "Kim", "Nguyen", "Patel", "Khan", "Silva", "Costa",
-    "Müller", "Dubois", "Garcia", "Rossi", "Tanaka", "Sato", "Wang", "Li", "Chen", "Zhang",
-    "Brooks", "Hayes", "Ford", "Wells", "Bennett", "Carter", "Foster", "Grant", "Hale", "James",
-    "Okafor", "Mensah", "Ahmed", "Haidar", "Novak", "Ivanov", "Santos", "Mendoza", "Flores", "Reyes",
+    "Reed",
+    "Cruz",
+    "Park",
+    "Lee",
+    "Kim",
+    "Nguyen",
+    "Patel",
+    "Khan",
+    "Silva",
+    "Costa",
+    "Müller",
+    "Dubois",
+    "Garcia",
+    "Rossi",
+    "Tanaka",
+    "Sato",
+    "Wang",
+    "Li",
+    "Chen",
+    "Zhang",
+    "Brooks",
+    "Hayes",
+    "Ford",
+    "Wells",
+    "Bennett",
+    "Carter",
+    "Foster",
+    "Grant",
+    "Hale",
+    "James",
+    "Okafor",
+    "Mensah",
+    "Ahmed",
+    "Haidar",
+    "Novak",
+    "Ivanov",
+    "Santos",
+    "Mendoza",
+    "Flores",
+    "Reyes",
 ]
 
-ADJ = ["the go-to", "a rising", "a trusted", "a top", "a fast-growing", "an established", "a niche", "a beloved"]
+ADJ = [
+    "the go-to",
+    "a rising",
+    "a trusted",
+    "a top",
+    "a fast-growing",
+    "an established",
+    "a niche",
+    "a beloved",
+]
 FORMATS = [
-    "short-form videos", "long-form tutorials", "live streams", "daily stories",
-    "weekly deep-dives", "reels and carousels", "vlogs", "Q&A sessions",
+    "short-form videos",
+    "long-form tutorials",
+    "live streams",
+    "daily stories",
+    "weekly deep-dives",
+    "reels and carousels",
+    "vlogs",
+    "Q&A sessions",
 ]
 
 
@@ -133,12 +331,18 @@ def _real_kol_docs(used_handles: set[str]) -> list[dict]:
         used_handles.add(handle)
         tier = k["tier"]
         followers = k["followers"]
-        base_eng = {"nano": 7.5, "micro": 5.5, "mid": 3.8, "macro": 2.6, "mega": 1.6}[tier]
+        base_eng = {"nano": 7.5, "micro": 5.5, "mid": 3.8, "macro": 2.6, "mega": 1.6}[
+            tier
+        ]
         engagement = round(max(0.4, rng.gauss(base_eng, 0.9)), 1)
         # Synthetic sponsorship rate for scoring's price_norm denominator only;
         # this is NOT the real quote (which never leaves the aggregator).
-        price = max(50, int(followers / 1000 * rng.uniform(8, 22) * (1 + engagement / 20)))
-        brands = ", ".join(k["brands"]) if k["brands"] else "AI coding and developer tools"
+        price = max(
+            50, int(followers / 1000 * rng.uniform(8, 22) * (1 + engagement / 20))
+        )
+        brands = (
+            ", ".join(k["brands"]) if k["brands"] else "AI coding and developer tools"
+        )
         text = (
             f"{k['name']} (@{handle}) is a trusted {k['niche']} creator on "
             f"{k['platform']} with {humanize(followers)} followers, based in "
@@ -149,6 +353,7 @@ def _real_kol_docs(used_handles: set[str]) -> list[dict]:
             f"A strong fit for AI coding and developer-tool brands looking to reach "
             f"an English-speaking developer audience."
         )
+        scores = precompute_scores(followers, engagement, tier)
         docs.append(
             {
                 "id": f"kol-real-{i:04d}",
@@ -164,6 +369,10 @@ def _real_kol_docs(used_handles: set[str]) -> list[dict]:
                     "followers": followers,
                     "engagement_pct": engagement,
                     "price_usd": price,
+                    # PUBLIC avatar (real face via unavatar) + precomputed signals.
+                    "avatar_url": k.get("avatar_url")
+                    or avatar_url(handle, k["platform"], k["name"]),
+                    **scores,
                     "source": "real",
                 },
             }
@@ -198,7 +407,9 @@ def main() -> None:
         tier = tier_for(followers)
 
         # Engagement inversely correlates with size (smaller = more engaged).
-        base_eng = {"nano": 7.5, "micro": 5.5, "mid": 3.8, "macro": 2.6, "mega": 1.6}[tier]
+        base_eng = {"nano": 7.5, "micro": 5.5, "mid": 3.8, "macro": 2.6, "mega": 1.6}[
+            tier
+        ]
         engagement = round(max(0.4, rng.gauss(base_eng, 0.9)), 1)
 
         # Price scales with reach and engagement.
@@ -229,6 +440,7 @@ def main() -> None:
             f"looking to reach a {language}-speaking audience in {region}."
         )
 
+        scores = precompute_scores(followers, engagement, tier)
         docs.append(
             {
                 "id": f"kol-{i:04d}",
@@ -244,11 +456,16 @@ def main() -> None:
                     "followers": followers,
                     "engagement_pct": engagement,
                     "price_usd": price,
+                    # PUBLIC avatar (initials/proxy by handle) + precomputed signals.
+                    "avatar_url": avatar_url(handle, platform, name),
+                    **scores,
                 },
             }
         )
 
-    OUT_PATH.write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
+    OUT_PATH.write_text(
+        json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     # Quick distribution summary.
     from collections import Counter
@@ -257,7 +474,9 @@ def main() -> None:
     nich = Counter(d["metadata"]["niche"] for d in docs)
     tiers = Counter(d["metadata"]["tier"] for d in docs)
     n_real = sum(1 for d in docs if d["metadata"].get("source") == "real")
-    print(f"Wrote {len(docs)} KOLs to {OUT_PATH}  ({n_real} real + {len(docs) - n_real} synthetic)")
+    print(
+        f"Wrote {len(docs)} KOLs to {OUT_PATH}  ({n_real} real + {len(docs) - n_real} synthetic)"
+    )
     print("Platforms:", dict(plat))
     print("Tiers:", dict(tiers))
     print("Niches:", dict(sorted(nich.items())))

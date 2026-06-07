@@ -90,7 +90,14 @@ async def publish_evidence(room, payload: dict) -> None:
 
 
 def kol_items(docs: list[dict], limit: int = 6) -> list[dict]:
-    """Render KOL/candidate dicts into safe card items (no real quote)."""
+    """Render KOL/candidate dicts into safe card items (no real quote).
+
+    Aligned to the BUILD-1 frontend / a-evidence contract: each item also carries
+    a top-level ``avatar`` (public profile image URL) and ``alpha`` (the
+    precomputed 0-100 alpha signal) so the card shows a real face + real score.
+    The legacy field names (name/handle/sim/total_score/...) are kept intact so
+    the 9-type contract is unchanged. CONFIDENTIALITY: never emits ``price_usd``.
+    """
     out: list[dict] = []
     for d in docs[:limit]:
         md = d.get("metadata", d) if isinstance(d, dict) else {}
@@ -103,10 +110,34 @@ def kol_items(docs: list[dict], limit: int = 6) -> list[dict]:
             "engagement_pct": md.get("engagement_pct", ""),
             "region": md.get("region", ""),
         }
-        # Scoring breakdown columns when present (alpha_ranking card).
+        # Public avatar URL (real face for real KOLs; initials otherwise).
+        avatar = md.get("avatar_url") or md.get("avatar")
+        if avatar:
+            item["avatar"] = avatar
+        # Precomputed standalone alpha (baked into metadata at index build).
+        # Surfaced as ``alpha`` (a-evidence field name) for the card headline.
+        with contextlib.suppress(TypeError, ValueError):
+            md_alpha = md.get("alpha_score")
+            if md_alpha is not None:
+                item["alpha"] = round(float(md_alpha), 1)
+        # Precomputed sub-dimensions (optional card detail, all public-derived).
+        for k in ("influence_score", "momentum_score", "brand_fit_percentile"):
+            if md.get(k) is not None:
+                with contextlib.suppress(TypeError, ValueError):
+                    item[k] = round(float(md[k]), 1)
+        # Runtime scoring breakdown columns when present (alpha_ranking card).
+        # These live on the candidate dict ``d`` (added by scoring.py), and the
+        # runtime alpha_score (pool-relative) takes precedence for ``alpha``.
         for k in ("match_score", "perf_score", "alpha_score", "total_score"):
             if k in d:
                 item[k] = d[k]
+        if d.get("alpha_score") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                item["alpha"] = (
+                    round(float(d["alpha_score"]) * 100, 1)
+                    if float(d["alpha_score"]) <= 1
+                    else round(float(d["alpha_score"]), 1)
+                )
         # SAFE cost only — estimated market cost, never the real quote.
         emc = d.get("estimated_market_cost")
         if emc is not None:

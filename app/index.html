@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>ANSIO — Conversational Alpha Console</title>
 
+<!-- Preload the (large, vendored) LiveKit UMD so its download runs in PARALLEL
+     with HTML parsing instead of blocking first paint. The matching deferred
+     loader tag at the body end uses the same ?v= so it hits this preload.
+     The ?v= is a cache-busting handle: bump it when the vendor file changes so
+     an `immutable` long-cache (token_server) is invalidated on upgrade only. -->
+<link rel="preload" href="./vendor/livekit-client.umd.min.js?v=1" as="script" />
+<link rel="preconnect" href="/" />
+
 <!--
   ANSIO three-column voice console — clean vanilla rewrite.
   ----------------------------------------------------------------
@@ -77,6 +85,13 @@
 
     --rail-l: 248px;
     --rail-r: 372px;
+
+    /* design-dna v5 additions (zero-risk append): orb conic 3rd stop + per-category tint hues */
+    --orb-mid: oklch(0.7 0.08 200);
+    --tint-bant: 250;
+    --tint-pos: 165;
+    --tint-warn: 30;
+    --tint-info: 200;
   }
 
   [data-theme="dark"] {
@@ -145,7 +160,9 @@
     overflow: hidden;
   }
 
-  /* Aurora field — slow drifting glow behind the glass, theme-aware. */
+  /* Aurora field — slow drifting glow behind the glass, theme-aware.
+     The drift animation only starts once `body.ready` (set on load) so the
+     first paint isn't taxed by a large compositing layer (b-flicker §4b). */
   .aurora {
     position: fixed;
     inset: 0;
@@ -156,8 +173,10 @@
       radial-gradient(40vw 40vw at 88% 24%, var(--aurora-b), transparent 60%),
       radial-gradient(50vw 50vw at 70% 96%, var(--aurora-c), transparent 64%);
     filter: saturate(118%);
-    animation: drift 26s var(--ease) infinite alternate;
+    opacity: 0;
+    transition: opacity 0.6s var(--ease);
   }
+  body.ready .aurora { opacity: 1; animation: drift 26s var(--ease) infinite alternate; }
   .aurora::after {
     content: "";
     position: absolute;
@@ -189,6 +208,51 @@
     height: 100vh;
     height: 100dvh;
     gap: 0;
+    transition: grid-template-columns 0.32s var(--ease);
+  }
+  /* desktop left-rail collapse (point ①): conversation/workflow split 55/45-ish 1fr 1fr.
+     The aside is hidden via 0 width + the rail itself fades/clips, RTC untouched. */
+  @media (min-width: 1081px) {
+    .app[data-collapse-l="1"] {
+      grid-template-columns: 0 minmax(0, 1fr) var(--rail-r);
+    }
+    .app[data-collapse-l="1"] .rail-l {
+      transform: translateX(-100%);
+      opacity: 0;
+      padding-left: 0; padding-right: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .rail-l {
+      transition: transform 0.32s var(--ease), opacity 0.24s var(--ease), padding 0.32s var(--ease);
+    }
+  }
+  /* left-rail collapse chevron (desktop only) */
+  .rail-l-collapse {
+    display: none;
+    appearance: none; border: 1px solid var(--stroke); background: var(--glass-2);
+    color: var(--ink-2); border-radius: 9px; width: 30px; height: 30px; flex: none;
+    cursor: pointer; align-items: center; justify-content: center; margin-left: auto;
+    transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+  }
+  .rail-l-collapse:hover { border-color: var(--stroke-hi); color: var(--ink-0); }
+  .rail-l-collapse svg { width: 16px; height: 16px; }
+  @media (min-width: 1081px) { .rail-l-collapse { display: inline-flex; } }
+  /* floating re-expand handle, shown only while collapsed on desktop */
+  .rail-l-expand {
+    display: none;
+    position: fixed; top: 18px; left: 14px; z-index: 30;
+    appearance: none; border: 1px solid var(--stroke); background: var(--glass-2);
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    color: var(--ink-1); border-radius: 9px; width: 34px; height: 34px;
+    cursor: pointer; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-soft);
+    transition: border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.16s var(--ease);
+  }
+  .rail-l-expand:hover { border-color: var(--stroke-hi); color: var(--ink-0); transform: translateY(-1px); }
+  .rail-l-expand svg { width: 16px; height: 16px; }
+  @media (min-width: 1081px) {
+    .app[data-collapse-l="1"] .rail-l-expand { display: inline-flex; }
   }
 
   /* ---------- LEFT RAIL: sessions / nav / status / theme ---------- */
@@ -277,13 +341,16 @@
     background: var(--ink-3);
     flex: none;
     box-shadow: 0 0 0 0 transparent;
+    transition: background 0.3s var(--ease), box-shadow 0.3s var(--ease);
   }
+  .status .label { transition: color 0.25s var(--ease); }
   .status[data-state="connecting"] .dot { background: var(--gold); animation: pulse 1.1s ease-in-out infinite; }
   .status[data-state="connected"]  .dot { background: var(--accent-bright); }
-  .status[data-state="agent-joined"] .dot { background: var(--pos); box-shadow: 0 0 0 4px oklch(0.74 0.085 165 / 0.18); }
+  .status[data-state="agent-joined"] .dot { background: var(--pos); box-shadow: 0 0 0 4px oklch(0.74 0.085 165 / 0.18); animation: dotPop 0.45s var(--ease-out); }
   .status[data-state="error"] .dot { background: var(--warn); }
   .status[data-state="agent-joined"] .label { color: var(--ink-0); }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes dotPop { 0% { transform: scale(0.5); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 
   .theme-toggle {
     display: flex; align-items: center; justify-content: space-between;
@@ -308,10 +375,19 @@
   }
   [data-theme="light"] .theme-toggle .knob { transform: translateX(18px); }
 
-  /* ---------- CENTER: conversation ---------- */
+  /* ---------- CENTER: conversation ----------
+     GRID rows (not flex column) so the composer is NEVER pushed off-screen
+     when the thread overflows:
+        [center-head  auto]
+        [thread       1fr  min-height:0  -> own scroll]
+        [sound-unlock auto]
+        [composer     auto -> pinned to the bottom, always visible]
+     The 1fr row carries `min-height:0` so the thread scrolls inside itself
+     instead of stretching the grid and shoving the composer out of view. */
   .center {
-    display: flex; flex-direction: column;
-    min-width: 0; height: 100%;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    min-width: 0; min-height: 0; height: 100%;
     position: relative;
   }
   .center-head {
@@ -333,22 +409,48 @@
   .rail-btn svg { width: 16px; height: 16px; }
 
   .thread {
-    flex: 1; min-height: 0; overflow-y: auto;
+    min-height: 0; height: 100%; overflow-y: auto;
     padding: 26px clamp(16px, 7vw, 96px) 18px;
-    display: flex; flex-direction: column; gap: 16px;
+    display: flex; flex-direction: column; gap: 18px;
     scroll-behavior: smooth;
+    overscroll-behavior: contain;
   }
-  .msg { display: flex; gap: 12px; max-width: 760px; animation: rise 0.4s var(--ease-out) both; }
+
+  /* one turn = avatar column + (name label / bubble) stacked.
+     AI turns hug the left, user turns hug the right (row-reverse). */
+  .msg {
+    display: flex; gap: 12px; max-width: 760px;
+    animation: rise 0.42s var(--ease-out) both;
+  }
   .msg.user { align-self: flex-end; flex-direction: row-reverse; }
-  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .msg.ai   { align-self: flex-start; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .msg-stack { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .msg.user .msg-stack { align-items: flex-end; }
+
+  .msg-name {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+    color: var(--ink-2); padding: 0 4px; line-height: 1;
+  }
+  .msg.ai .msg-name { color: var(--accent-bright); }
 
   .msg-avatar {
-    width: 30px; height: 30px; border-radius: 9px; flex: none;
-    display: grid; place-items: center; font-size: 12px; font-weight: 700;
-    color: var(--ink-0);
+    width: 32px; height: 32px; border-radius: 10px; flex: none;
+    display: grid; place-items: center; font-size: 12px; font-weight: 800;
+    color: var(--ink-0); overflow: hidden; align-self: flex-start;
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.12) inset;
   }
-  .msg.ai .msg-avatar { background: linear-gradient(150deg, var(--accent-bright), var(--accent-deep)); color: oklch(0.99 0 0); }
-  .msg.user .msg-avatar { background: var(--glass-hi); border: 1px solid var(--stroke-hi); color: var(--ink-1); }
+  .msg-avatar svg { width: 18px; height: 18px; display: block; }
+  .msg.ai .msg-avatar {
+    background: linear-gradient(150deg, var(--accent-bright), var(--accent-deep));
+    color: oklch(0.99 0 0);
+    box-shadow: 0 4px 14px -6px var(--accent-deep), 0 1px 0 oklch(1 0 0 / 0.25) inset;
+  }
+  .msg.user .msg-avatar {
+    background: linear-gradient(150deg, var(--glass-hi), var(--glass-2));
+    border: 1px solid var(--stroke-hi); color: var(--ink-0);
+  }
 
   .bubble {
     padding: 12px 16px; border-radius: var(--r-md);
@@ -356,6 +458,7 @@
     border: 1px solid var(--stroke);
     box-shadow: var(--shadow-soft);
     overflow-wrap: anywhere;
+    transition: border-color 0.18s var(--ease);
   }
   .msg.ai .bubble { background: var(--bubble-ai); border-top-left-radius: 6px; }
   .msg.user .bubble { background: var(--bubble-user); border: 1px solid var(--bubble-user-stroke); border-top-right-radius: 6px; }
@@ -381,11 +484,14 @@
   }
   .empty .chip:hover { border-color: var(--accent); color: var(--ink-0); }
 
-  /* composer */
+  /* composer — pinned to the bottom grid row, never collapses or scrolls away. */
   .composer {
+    flex: none; flex-shrink: 0;
     padding: 14px clamp(16px, 7vw, 96px) 20px;
     border-top: 1px solid var(--stroke);
     background: linear-gradient(transparent, var(--glass));
+    -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
   }
   .composer-row {
     display: flex; align-items: flex-end; gap: 10px;
@@ -490,9 +596,20 @@
     border-radius: var(--r-sm); padding: 9px 10px;
   }
   .hud-cell .k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
-  .hud-cell .v { font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--ink-0); margin-top: 3px; line-height: 1; }
+  .hud-cell .v {
+    font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--ink-0);
+    margin-top: 3px; line-height: 1;
+    transition: color 0.2s var(--ease);
+  }
   .hud-cell .v.accent { color: var(--accent-bright); }
   .hud-cell .v.pos { color: var(--pos); }
+  /* a quick pop when a HUD figure changes (number-roll feel without JS layout) */
+  .hud-cell .v.bump { animation: hudBump 0.42s var(--ease-out); }
+  @keyframes hudBump {
+    0%   { transform: translateY(4px) scale(0.96); opacity: 0.45; }
+    55%  { transform: translateY(-2px) scale(1.06); }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
 
   .stream { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
   .stream-empty {
@@ -535,9 +652,51 @@
   .card-sub { font-size: 11px; color: var(--ink-2); margin-top: 3px; line-height: 1.4; }
   .card-lat { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--pos); flex: none; }
   .card-body { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
-  .card-item { font-size: 11.5px; color: var(--ink-1); line-height: 1.4; padding: 7px 9px; border-radius: 9px; background: var(--glass); border: 1px solid var(--stroke); }
-  .card-item .it-title { color: var(--ink-0); font-weight: 600; }
-  .card-item .it-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .card-item {
+    font-size: 11.5px; color: var(--ink-1); line-height: 1.4;
+    padding: 8px 10px; border-radius: 10px;
+    background: var(--glass); border: 1px solid var(--stroke);
+    display: flex; gap: 9px; align-items: flex-start;
+    /* each item fades+slides in; per-item delay set inline (--d) for a stagger */
+    animation: itemIn 0.4s var(--ease-out) both;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes itemIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* per-item KOL / source avatar (initials, platform-tinted) */
+  .it-avatar {
+    width: 26px; height: 26px; border-radius: 8px; flex: none;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.01em;
+    color: oklch(0.99 0 0); overflow: hidden;
+    background: linear-gradient(150deg, var(--accent-bright), var(--accent-deep));
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.18) inset;
+  }
+  .it-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* platform-keyed avatar tints (kept subtle, brand-neutral) */
+  .it-avatar[data-plat="youtube"]  { background: linear-gradient(150deg, oklch(0.62 0.18 25),  oklch(0.5 0.2 25)); }
+  .it-avatar[data-plat="instagram"]{ background: linear-gradient(150deg, oklch(0.66 0.17 350), oklch(0.6 0.16 40)); }
+  .it-avatar[data-plat="tiktok"]   { background: linear-gradient(150deg, oklch(0.6 0.13 200),  oklch(0.5 0.1 320)); }
+  .it-avatar[data-plat="x"]        { background: linear-gradient(150deg, oklch(0.45 0.01 270), oklch(0.3 0.01 270)); }
+  .it-avatar[data-plat="bilibili"] { background: linear-gradient(150deg, oklch(0.68 0.13 230), oklch(0.6 0.13 250)); }
+  .it-avatar[data-plat="twitch"]   { background: linear-gradient(150deg, oklch(0.58 0.17 300), oklch(0.5 0.16 300)); }
+  .it-avatar[data-plat="linkedin"] { background: linear-gradient(150deg, oklch(0.58 0.12 245), oklch(0.5 0.12 250)); }
+
+  .it-main { flex: 1; min-width: 0; }
+  .card-item .it-title { color: var(--ink-0); font-weight: 600; display: block; overflow-wrap: anywhere; }
+  .card-item .it-sub { color: var(--ink-2); font-size: 10.5px; margin-top: 2px; line-height: 1.35; }
+  .card-item .it-meta { margin-top: 5px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  /* meta is now chips, not a mono run-on line */
+  .it-chip {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+    color: var(--ink-2); padding: 2px 6px; border-radius: 6px;
+    background: var(--glass-2); border: 1px solid var(--stroke); line-height: 1.3;
+    white-space: nowrap;
+  }
+  .it-chip.score { color: var(--accent-bright); border-color: var(--bubble-user-stroke); background: var(--bubble-user); }
+  .it-chip.cost  { color: var(--gold); }
+  .it-chip.eng   { color: var(--pos); }
+
   .card-kind {
     font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--ink-3); padding: 2px 6px; border-radius: 5px; background: var(--glass);
@@ -580,6 +739,157 @@
     .thread { padding: 18px 14px 14px; }
     .composer { padding: 12px 14px 16px; }
   }
+
+  /* ============================================================
+     SETTINGS — left-rail-foot gear + glass popover (point ②).
+     ============================================================ */
+  .settings-row { display: flex; align-items: center; gap: 8px; }
+  .settings-gear {
+    appearance: none; border: 1px solid var(--stroke); background: var(--glass-2);
+    color: var(--ink-2); border-radius: var(--r-sm); width: 38px; height: 38px; flex: none;
+    cursor: pointer; display: grid; place-items: center;
+    transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+  }
+  .settings-gear:hover { border-color: var(--stroke-hi); color: var(--ink-0); }
+  .settings-gear svg { width: 17px; height: 17px; }
+  .settings-pop {
+    position: fixed; z-index: 60; left: 16px; bottom: 70px; width: 260px;
+    background: var(--glass); border: 1px solid var(--stroke-hi);
+    border-radius: var(--r-md); padding: 14px;
+    box-shadow: var(--shadow-card);
+    -webkit-backdrop-filter: blur(30px) saturate(1.5);
+            backdrop-filter: blur(30px) saturate(1.5);
+    display: none; flex-direction: column; gap: 14px;
+    animation: cardIn 0.28s var(--ease-out) both;
+  }
+  .settings-pop.open { display: flex; }
+  .settings-pop .sp-title { font-size: 12px; font-weight: 700; color: var(--ink-0); letter-spacing: -0.01em; }
+  .sp-field { display: flex; flex-direction: column; gap: 5px; }
+  .sp-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sp-label .t { font-size: 12px; font-weight: 600; color: var(--ink-1); }
+  .sp-help { font-size: 10.5px; color: var(--ink-3); line-height: 1.4; }
+  /* toggle switch */
+  .sp-switch {
+    appearance: none; border: 0; cursor: pointer; flex: none;
+    width: 40px; height: 22px; border-radius: 999px; position: relative;
+    background: var(--glass-hi); border: 1px solid var(--stroke);
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+  }
+  .sp-switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--ink-2);
+    transition: transform 0.22s var(--ease), background 0.22s var(--ease);
+  }
+  .sp-switch[aria-checked="true"] { background: var(--bubble-user); border-color: var(--bubble-user-stroke); }
+  .sp-switch[aria-checked="true"]::after { transform: translateX(18px); background: var(--accent-bright); }
+  /* reset button */
+  .sp-reset {
+    appearance: none; cursor: pointer; font-family: inherit;
+    font-size: 12px; font-weight: 600; color: var(--ink-1);
+    background: var(--glass-2); border: 1px solid var(--stroke);
+    border-radius: var(--r-sm); padding: 8px 11px; text-align: left;
+    transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+  }
+  .sp-reset:hover { border-color: var(--stroke-hi); color: var(--ink-0); }
+  .sp-reset[data-done="1"] { color: var(--pos); border-color: var(--pos); }
+  /* language segmented control */
+  .sp-seg { display: flex; gap: 4px; background: var(--glass-2); border: 1px solid var(--stroke); border-radius: var(--r-sm); padding: 3px; }
+  .sp-seg button {
+    flex: 1; appearance: none; border: 0; cursor: pointer; font-family: inherit;
+    font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+    background: transparent; border-radius: 9px; padding: 6px 4px;
+    transition: background 0.16s var(--ease), color 0.16s var(--ease);
+  }
+  .sp-seg button[aria-pressed="true"] { background: var(--bubble-user); color: var(--ink-0); }
+
+  /* ============================================================
+     SIGNATURE ELEMENTS (design-dna v5, point ⑤) — additive only.
+     Orb voice visual, sheen CTA sweep, msgIn bubble entrance.
+     ============================================================ */
+  .orb-wrap { position: relative; width: 30px; height: 30px; flex: none; display: inline-grid; place-items: center; }
+  .orb {
+    position: absolute; inset: 0; border-radius: 50%;
+    background:
+      radial-gradient(circle at 32% 28%, oklch(0.98 0.02 var(--accent-h)), transparent 45%),
+      conic-gradient(from 0deg, var(--accent-bright), var(--accent-deep), var(--orb-mid), var(--accent-bright));
+    box-shadow: 0 0 0 1px var(--stroke-hi), 0 6px 18px -8px var(--accent), 0 0 22px -6px var(--accent);
+    animation: orbSpin 9s linear infinite;
+  }
+  .orb::after {
+    content: ""; position: absolute; inset: 22%; border-radius: 50%;
+    background: var(--bg-0); opacity: 0.55; filter: blur(2px);
+    transition: inset 0.4s var(--ease), opacity 0.4s var(--ease);
+  }
+  .orb-wrap.speaking .orb::after { inset: 30%; opacity: 0.3; }
+  @keyframes orbSpin { to { transform: rotate(360deg); } }
+  .orb-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 1.5px solid var(--accent); opacity: 0; pointer-events: none;
+  }
+  .orb-wrap.speaking .orb-ring { animation: ringPulse 2.2s var(--ease-out) infinite; }
+  @keyframes ringPulse { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.9); opacity: 0; } }
+  /* sheen sweep across the Talk CTA (host already has position:relative;overflow:hidden) */
+  .talk .sheen {
+    position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+    background: linear-gradient(100deg, transparent, oklch(1 0 0 / 0.28), transparent);
+    transform: skewX(-18deg); pointer-events: none;
+    animation: sheen 3.4s ease-in-out infinite;
+  }
+  @keyframes sheen { 0%, 100% { left: -60%; } 55%, 100% { left: 140%; } }
+  .msg { animation: rise 0.42s var(--ease-out) both, msgIn 0.6s var(--ease-out) both; }
+  @keyframes msgIn { from { transform: translateY(10px); } to { transform: none; } }
+
+  /* ============================================================
+     RIGHT-RAIL MODULES (point ④) — Moss Retrieval + Recall Chain.
+     ============================================================ */
+  .rmod { border-bottom: 1px solid var(--stroke); }
+  .rmod > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    padding: 12px 18px; display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .rmod > summary::-webkit-details-marker { display: none; }
+  .rmod > summary .chev { margin-left: auto; transition: transform 0.22s var(--ease); color: var(--ink-3); }
+  .rmod > summary .chev svg { width: 14px; height: 14px; display: block; }
+  .rmod[open] > summary .chev { transform: rotate(180deg); }
+  .rmod-body { padding: 0 18px 14px; }
+  /* Moss Retrieval efficiency module */
+  .ret-stat { display: flex; align-items: baseline; gap: 8px; }
+  .ret-stat .big { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--pos); line-height: 1; }
+  .ret-stat .avg { font-size: 10.5px; color: var(--ink-3); }
+  .ret-query { font-size: 11px; color: var(--ink-2); margin-top: 7px; line-height: 1.4; overflow-wrap: anywhere; }
+  .ret-query b { color: var(--ink-1); font-weight: 600; }
+  .ret-spark { display: flex; gap: 3px; align-items: flex-end; height: 22px; margin-top: 9px; }
+  .ret-spark span {
+    flex: 1; min-width: 2px; border-radius: 2px 2px 0 0;
+    background: linear-gradient(var(--accent-bright), var(--accent-deep));
+    opacity: 0.8; transition: height 0.3s var(--ease);
+  }
+  /* Recall Chain stepper */
+  .recall { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+  .recall li {
+    position: relative; padding: 7px 0 7px 26px;
+    font-size: 11.5px; color: var(--ink-3); line-height: 1.3;
+    transition: color 0.25s var(--ease);
+  }
+  .recall li::before {
+    content: ""; position: absolute; left: 6px; top: 11px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--glass-hi); border: 1.5px solid var(--stroke-hi);
+    transition: background 0.3s var(--ease), border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  }
+  .recall li::after {
+    content: ""; position: absolute; left: 10px; top: 18px;
+    width: 1.5px; height: calc(100% - 9px); background: var(--stroke);
+  }
+  .recall li:last-child::after { display: none; }
+  .recall li.lit { color: var(--ink-0); font-weight: 600; }
+  .recall li.lit::before {
+    background: var(--pos); border-color: var(--pos);
+    box-shadow: 0 0 0 3px oklch(0.74 0.085 165 / 0.18);
+  }
+  .recall li.lit::after { background: var(--pos); opacity: 0.4; }
 </style>
 </head>
 <body>
@@ -599,6 +909,9 @@
           <div class="brand-name">ANSIO</div>
           <div class="brand-sub">Alpha Console</div>
         </div>
+        <button class="rail-l-collapse" id="collapseL" aria-label="Collapse sidebar" title="Collapse sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
       </div>
 
       <button class="btn btn-new" id="newSession">
@@ -626,12 +939,46 @@
           <span class="dot" aria-hidden="true"></span>
           <span class="label" id="statusLabel">Not connected</span>
         </div>
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">
-          <span id="themeLabel">Dark</span>
-          <span class="track" aria-hidden="true"><span class="knob"></span></span>
-        </button>
+        <div class="settings-row">
+          <button class="theme-toggle" id="themeToggle" aria-label="Toggle color theme" style="flex:1">
+            <span id="themeLabel">Dark</span>
+            <span class="track" aria-hidden="true"><span class="knob"></span></span>
+          </button>
+          <button class="settings-gear" id="settingsGear" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+        </div>
       </div>
     </aside>
+
+    <!-- floating re-expand handle (desktop, visible only while left rail collapsed) -->
+    <button class="rail-l-expand" id="expandL" aria-label="Expand sidebar" title="Expand sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+
+    <!-- settings popover (point ②): memory toggle / reset profile / language -->
+    <div class="settings-pop" id="settingsPop" role="dialog" aria-label="Settings" aria-modal="false">
+      <div class="sp-title">Settings</div>
+      <div class="sp-field">
+        <div class="sp-label">
+          <span class="t">Memory</span>
+          <button class="sp-switch" id="memToggle" role="switch" aria-checked="false" aria-label="Toggle memory"></button>
+        </div>
+        <div class="sp-help">On: ANSIO remembers your profile (stored in Moss). Off: nothing is read or written.</div>
+      </div>
+      <div class="sp-field">
+        <button class="sp-reset" id="resetProfile">Reset profile</button>
+        <div class="sp-help" id="resetHint">Clears your stored profile on next connect.</div>
+      </div>
+      <div class="sp-field">
+        <div class="sp-label"><span class="t">Language</span></div>
+        <div class="sp-seg" id="langSeg" role="group" aria-label="Language">
+          <button data-lang="en" aria-pressed="false">EN</button>
+          <button data-lang="zh" aria-pressed="false">中文</button>
+          <button data-lang="auto" aria-pressed="true">Auto</button>
+        </div>
+      </div>
+    </div>
 
     <!-- =================== CENTER: CONVERSATION =================== -->
     <main class="center">
@@ -667,6 +1014,7 @@
         <div class="composer-row">
           <textarea id="input" rows="1" placeholder="Message ANSIO…  (Enter to send, Shift+Enter for newline)"></textarea>
           <button class="talk" id="talk" aria-label="Talk to ANSIO with voice">
+            <span class="sheen" aria-hidden="true"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
               <path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
@@ -695,6 +1043,38 @@
         <div class="hud-cell"><div class="k">Total hits</div><div class="v" id="hudHits">0</div></div>
         <div class="hud-cell"><div class="k">Last latency</div><div class="v pos" id="hudLatency">—</div></div>
       </div>
+
+      <!-- Module a: Moss Retrieval efficiency (point ④a) -->
+      <details class="rmod" id="modRetrieval" open>
+        <summary>Moss Retrieval
+          <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        </summary>
+        <div class="rmod-body">
+          <div class="ret-stat">
+            <span class="big" id="retLast">—</span>
+            <span class="avg" id="retAvg">avg —</span>
+          </div>
+          <div class="ret-query" id="retQuery">Awaiting first retrieval…</div>
+          <div class="ret-spark" id="retSpark" aria-hidden="true"></div>
+        </div>
+      </details>
+
+      <!-- Module b: Recall Chain stepper (point ④b) -->
+      <details class="rmod" id="modRecall" open>
+        <summary>Recall Chain
+          <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        </summary>
+        <div class="rmod-body">
+          <ol class="recall" id="recallChain">
+            <li data-step="1">Competitor analysis</li>
+            <li data-step="2">Sponsorship graph</li>
+            <li data-step="3">Creator profile</li>
+            <li data-step="4">Wide recall</li>
+            <li data-step="5">Alpha ranking</li>
+          </ol>
+        </div>
+      </details>
+
       <div class="stream" id="stream">
         <div class="stream-empty" id="streamEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -706,8 +1086,12 @@
     <div class="scrim" id="scrim"></div>
   </div>
 
-  <!-- LiveKit Web SDK (vendored UMD -> global LivekitClient). No CDN, no build. -->
-  <script src="./vendor/livekit-client.umd.min.js"></script>
+  <!-- LiveKit Web SDK (vendored UMD -> global LivekitClient). No CDN, no build.
+       `defer`: download in parallel (via the <head> preload) and execute after
+       HTML parse, so the 479KB UMD no longer blocks first paint (b-flicker §1.3).
+       The controller script below is ALSO deferred so it runs after this UMD is
+       evaluated, preserving execution order. -->
+  <script defer src="./vendor/livekit-client.umd.min.js?v=1"></script>
 
   <script>
   /* ============================================================
@@ -722,7 +1106,11 @@
   (function () {
     "use strict";
 
-    var LK = window.LivekitClient; // UMD global
+    // UMD global is read LAZILY (not captured here): the vendored LiveKit
+    // loader tag is now deferred, so it may evaluate AFTER this inline
+    // controller. Every LK use happens at connect time (a user gesture, long
+    // after load), by which point `window.LivekitClient` is guaranteed present.
+    function getLK() { return window.LivekitClient; }
     // SAME-ORIGIN relative endpoint — never a hardcoded host:port, never a key.
     var TOKEN_ENDPOINT = window.ANSIO_TOKEN_ENDPOINT || "/token";
     var AGENT_NAME = window.ANSIO_AGENT_NAME || "agent-py";
@@ -740,6 +1128,14 @@
       hint: $("hint"), soundUnlock: $("soundUnlock"),
       newSession: $("newSession"), chips: $("chips"),
       openL: $("openL"), openR: $("openR"), scrim: $("scrim"),
+      // collapse + settings (points ①②)
+      collapseL: $("collapseL"), expandL: $("expandL"),
+      settingsGear: $("settingsGear"), settingsPop: $("settingsPop"),
+      memToggle: $("memToggle"), resetProfile: $("resetProfile"), resetHint: $("resetHint"),
+      langSeg: $("langSeg"),
+      // right-rail modules (point ④)
+      retLast: $("retLast"), retAvg: $("retAvg"), retQuery: $("retQuery"), retSpark: $("retSpark"),
+      recallChain: $("recallChain"),
     };
 
     var room = null;
@@ -747,6 +1143,7 @@
     var connecting = false;
     var typingNode = null;
     var stats = { queries: 0, hits: 0 };
+    var latHistory = []; // recent retrieval latencies (ms) for the Moss Retrieval module
 
     // ============================================================
     // THEME
@@ -763,6 +1160,106 @@
       syncThemeLabel();
     });
     syncThemeLabel();
+
+    // ============================================================
+    // localStorage helpers (degradation-safe: never throw)
+    // ============================================================
+    function lsGet(k, dflt) { try { var v = localStorage.getItem(k); return v == null ? dflt : v; } catch (e) { return dflt; } }
+    function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+    // Stable user id — minted once, reused forever (point ②).
+    function ensureUserId() {
+      var id = lsGet("ansio_user_id", "");
+      if (!id) {
+        try { id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("u-" + Date.now() + "-" + Math.random().toString(16).slice(2)); }
+        catch (e) { id = "u-" + Date.now() + "-" + Math.random().toString(16).slice(2); }
+        lsSet("ansio_user_id", id);
+      }
+      return id;
+    }
+    ensureUserId();
+
+    // ============================================================
+    // LEFT-RAIL COLLAPSE (point ①) — desktop only; state persisted.
+    // ============================================================
+    function applyRailL(collapsed) {
+      if (collapsed) els.app.setAttribute("data-collapse-l", "1");
+      else els.app.removeAttribute("data-collapse-l");
+    }
+    applyRailL(lsGet("ansio-rail-l", "0") === "1");
+    function setRailL(collapsed) { applyRailL(collapsed); lsSet("ansio-rail-l", collapsed ? "1" : "0"); }
+    if (els.collapseL) els.collapseL.addEventListener("click", function () { setRailL(true); });
+    if (els.expandL) els.expandL.addEventListener("click", function () { setRailL(false); });
+
+    // ============================================================
+    // SETTINGS POPOVER (point ②) — memory / reset profile / language.
+    // ============================================================
+    function openSettings(open) {
+      if (!els.settingsPop) return;
+      els.settingsPop.classList.toggle("open", !!open);
+      if (els.settingsGear) els.settingsGear.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    if (els.settingsGear) {
+      els.settingsGear.addEventListener("click", function (e) {
+        e.stopPropagation();
+        openSettings(!els.settingsPop.classList.contains("open"));
+      });
+    }
+    // click-away to close
+    document.addEventListener("click", function (e) {
+      if (!els.settingsPop || !els.settingsPop.classList.contains("open")) return;
+      if (els.settingsPop.contains(e.target) || (els.settingsGear && els.settingsGear.contains(e.target))) return;
+      openSettings(false);
+    });
+
+    // Memory toggle — default "0" (off).
+    function syncMemory() {
+      var on = lsGet("ansio_memory_enabled", "0") === "1";
+      if (els.memToggle) els.memToggle.setAttribute("aria-checked", on ? "true" : "false");
+    }
+    syncMemory();
+    if (els.memToggle) {
+      els.memToggle.addEventListener("click", function () {
+        var on = lsGet("ansio_memory_enabled", "0") === "1";
+        lsSet("ansio_memory_enabled", on ? "0" : "1");
+        syncMemory();
+      });
+    }
+
+    // Reset profile — one-shot flag consumed at next connect.
+    if (els.resetProfile) {
+      els.resetProfile.addEventListener("click", function () {
+        lsSet("ansio_refresh_profile", "1");
+        els.resetProfile.setAttribute("data-done", "1");
+        els.resetProfile.textContent = "Will apply on next connect";
+        if (els.resetHint) els.resetHint.textContent = "Your profile will be cleared when you next connect.";
+        setTimeout(function () {
+          els.resetProfile.removeAttribute("data-done");
+          els.resetProfile.textContent = "Reset profile";
+          if (els.resetHint) els.resetHint.textContent = "Clears your stored profile on next connect.";
+        }, 2600);
+      });
+    }
+
+    // Language — EN / 中文 / Auto; default "auto".
+    function syncLang() {
+      var cur = lsGet("ansio_language", "auto");
+      if (!els.langSeg) return;
+      var btns = els.langSeg.querySelectorAll("button");
+      Array.prototype.forEach.call(btns, function (b) {
+        b.setAttribute("aria-pressed", b.getAttribute("data-lang") === cur ? "true" : "false");
+      });
+    }
+    syncLang();
+    if (els.langSeg) {
+      els.langSeg.addEventListener("click", function (e) {
+        var b = e.target.closest && e.target.closest("button[data-lang]");
+        if (!b) return;
+        lsSet("ansio_language", b.getAttribute("data-lang"));
+        syncLang();
+      });
+    }
 
     // ============================================================
     // STATUS BADGE  (idle | connecting | connected | agent-joined | error)
@@ -785,23 +1282,49 @@
     function clearEmpty() { if (els.empty && els.empty.parentNode) els.empty.parentNode.removeChild(els.empty); }
     function scrollThread() { els.thread.scrollTop = els.thread.scrollHeight; }
 
+    // The two speakers: ANSIO (agent) gets the brand star mark; the human
+    // (Skylar) gets an initial avatar. Names + side are driven by .msg.ai / .user.
+    var USER_NAME = window.ANSIO_USER_NAME || "Skylar";
+    var AGENT_LABEL = "ANSIO";
+    var ANSIO_MARK_SVG =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M12 3l2.4 5.1L20 9.3l-4 4 1 5.6L12 16.4 7 18.9l1-5.6-4-4 5.6-1.2L12 3z" ' +
+      'fill="oklch(0.99 0 0)" opacity="0.96"/></svg>';
+
     function avatarFor(role) {
       var a = document.createElement("div");
       a.className = "msg-avatar";
-      a.textContent = role === "user" ? "F" : "A";
       a.setAttribute("aria-hidden", "true");
+      if (role === "user") {
+        a.textContent = (USER_NAME || "S").charAt(0).toUpperCase();
+      } else {
+        a.innerHTML = ANSIO_MARK_SVG; // brand star, parity with the left-rail mark
+      }
       return a;
+    }
+    function nameLabel(role) {
+      var n = document.createElement("div");
+      n.className = "msg-name";
+      n.textContent = role === "user" ? USER_NAME : AGENT_LABEL;
+      return n;
     }
     function pushMessage(role, text) {
       clearEmpty();
       removeTyping();
+      var isUser = role === "user";
       var wrap = document.createElement("div");
-      wrap.className = "msg " + (role === "user" ? "user" : "ai");
+      wrap.className = "msg " + (isUser ? "user" : "ai");
+
+      var stack = document.createElement("div");
+      stack.className = "msg-stack";
+      stack.appendChild(nameLabel(role));
       var bubble = document.createElement("div");
       bubble.className = "bubble";
       bubble.textContent = text; // textContent -> no HTML injection from agent/user text
+      stack.appendChild(bubble);
+
       wrap.appendChild(avatarFor(role));
-      wrap.appendChild(bubble);
+      wrap.appendChild(stack);
       els.thread.appendChild(wrap);
       scrollThread();
     }
@@ -811,10 +1334,14 @@
       typingNode = document.createElement("div");
       typingNode.className = "msg ai";
       typingNode.appendChild(avatarFor("ai"));
+      var stack = document.createElement("div");
+      stack.className = "msg-stack";
+      stack.appendChild(nameLabel("ai"));
       var b = document.createElement("div");
       b.className = "bubble";
       b.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>'; // static markup
-      typingNode.appendChild(b);
+      stack.appendChild(b);
+      typingNode.appendChild(stack);
       els.thread.appendChild(typingNode);
       scrollThread();
     }
@@ -833,18 +1360,196 @@
     }
     function hideStreamEmpty() { if (els.streamEmpty && els.streamEmpty.parentNode) els.streamEmpty.parentNode.removeChild(els.streamEmpty); }
 
+    // retrigger a CSS keyframe by removing+reflowing+re-adding the class
+    function pulseEl(el) {
+      if (!el) return;
+      el.classList.remove("bump");
+      void el.offsetWidth; // force reflow so the animation can replay
+      el.classList.add("bump");
+    }
     function bumpHud(hits, ms) {
       stats.queries += 1;
       stats.hits += (hits || 0);
       els.hudQueries.textContent = String(stats.queries);
       els.hudHits.textContent = String(stats.hits);
       els.hudLatency.textContent = ms != null ? ms + "ms" : "<10ms";
+      pulseEl(els.hudQueries); pulseEl(els.hudHits); pulseEl(els.hudLatency);
+      updateRetrievalStat(ms);
+    }
+
+    // ------------------------------------------------------------
+    // RIGHT-RAIL MODULE a: Moss Retrieval efficiency (point ④a)
+    // ------------------------------------------------------------
+    function updateRetrievalStat(ms) {
+      var shown = ms != null ? ms : 8; // treat <10ms unknowns as ~8ms for the spark
+      latHistory.push(shown);
+      if (latHistory.length > 12) latHistory.shift();
+      if (els.retLast) els.retLast.textContent = (ms != null ? ms + "ms" : "<10ms");
+      if (els.retAvg && latHistory.length) {
+        var sum = latHistory.reduce(function (a, b) { return a + b; }, 0);
+        els.retAvg.textContent = "avg " + Math.round(sum / latHistory.length) + "ms";
+      }
+      if (els.retSpark) {
+        var max = Math.max.apply(null, latHistory.concat([1]));
+        els.retSpark.innerHTML = latHistory.map(function (v) {
+          var h = Math.max(8, Math.round((v / max) * 100));
+          return '<span style="height:' + h + '%"></span>';
+        }).join("");
+      }
+    }
+    function setRetrievalQuery(query, hits) {
+      if (!els.retQuery) return;
+      var q = String(query || "").replace(/\s+/g, " ").slice(0, 80);
+      els.retQuery.innerHTML = q
+        ? '<b>' + escapeHtml(q) + '</b>' + (hits != null ? ' · ' + hits + ' hits' : '')
+        : (hits != null ? hits + ' hits' : 'Awaiting first retrieval…');
+    }
+
+    // ------------------------------------------------------------
+    // RIGHT-RAIL MODULE b: Recall Chain stepper (point ④b)
+    //   competitor_landscape=1, content_hits/playbook_hit=2,
+    //   kol_profile=3, similar_creators=4, alpha_ranking=5
+    // ------------------------------------------------------------
+    var RECALL_STEP = {
+      competitor_landscape: 1,
+      content_hits: 2, playbook_hit: 2,
+      kol_profile: 3,
+      similar_creators: 4,
+      alpha_ranking: 5,
+    };
+    function litRecall(type) {
+      var step = RECALL_STEP[type];
+      if (!step || !els.recallChain) return;
+      var li = els.recallChain.querySelector('li[data-step="' + step + '"]');
+      if (li) li.classList.add("lit");
     }
 
     function escapeHtml(s) {
       return String(s == null ? "" : s)
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+    }
+
+    // ------------------------------------------------------------
+    // EVIDENCE ITEM RENDERING — field-name adapter (INV-A root-cause fix).
+    //
+    // Publisher items (events.py kol_items / tool-built) carry
+    //   name / handle / platform / followers / niche / engagement_pct /
+    //   region / sim / total_score / match_score / perf_score / alpha_score /
+    //   estimated_market_cost   (KOL & leaderboard cards)
+    //   category / funding      (competitor_landscape)
+    //   posts / total_views / sample (content_hits)
+    //   text / source           (playbook_hit)
+    // The OLD renderer only read title/text + score/views + source, so every
+    // card except playbook came out as an empty row. We map them all here.
+    //
+    // CONFIDENTIALITY: we display ONLY estimated_market_cost (an aggregate
+    // estimate). We NEVER read it.price_usd or any real deal rate — and the
+    // publisher never puts price_usd into items anyway.
+    // ------------------------------------------------------------
+    var PLATFORM_KEY = {
+      youtube: "youtube", instagram: "instagram", tiktok: "tiktok",
+      x: "x", twitter: "x", bilibili: "bilibili", twitch: "twitch", linkedin: "linkedin",
+    };
+    function platformKey(p) {
+      var k = String(p || "").trim().toLowerCase();
+      return PLATFORM_KEY[k] || "";
+    }
+    function initials(s) {
+      var str = String(s || "").trim();
+      if (!str) return "?";
+      var parts = str.replace(/^@/, "").split(/[\s_.-]+/).filter(Boolean);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return str.replace(/^@/, "").slice(0, 2).toUpperCase();
+    }
+    function fmtNum(n) {
+      var v = Number(n);
+      if (!isFinite(v)) return null;
+      if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M";
+      if (v >= 1e3) return (v / 1e3).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, "") + "K";
+      return String(v);
+    }
+    function fmtScore(n) {
+      var v = Number(n);
+      if (!isFinite(v)) return null;
+      // sim is 0–1 (3dp); the *_score families are 0–100 — show each naturally.
+      return v <= 1 ? v.toFixed(2) : (Math.round(v * 10) / 10).toString();
+    }
+    function fmtCost(c) {
+      var v = Number(c);
+      if (!isFinite(v)) return String(c);
+      var f = fmtNum(v);
+      return "$" + (f || v);
+    }
+
+    function itemAvatar(it) {
+      // Prefer a real public avatar URL if one is ever attached; else initials.
+      var url = it.avatar_url || it.avatar || it.profile_pic_url || it.image_url;
+      var pk = platformKey(it.platform);
+      var label = it.name || it.handle || it.title || it.text || it.category || "";
+      var inner = url
+        ? '<img src="' + escapeHtml(String(url)) + '" alt="" loading="lazy" ' +
+            'onerror="this.style.display=\'none\';this.parentNode.textContent=\'' +
+            escapeHtml(initials(label)).replace(/'/g, "") + '\'" />'
+        : escapeHtml(initials(label));
+      return '<span class="it-avatar"' + (pk ? ' data-plat="' + pk + '"' : "") + '>' + inner + "</span>";
+    }
+
+    function renderItem(it, i) {
+      // --- title (name/handle for KOLs; text for playbook; category for competitor) ---
+      var titleRaw = it.title || it.name || it.text || it.handle || it.sample || it.category || "Result";
+      var title = escapeHtml(String(titleRaw).replace(/\s+/g, " ").slice(0, 120));
+
+      // --- sub line: handle · platform · niche · region (whatever exists) ---
+      var subBits = [];
+      if (it.handle && it.name) subBits.push("@" + String(it.handle).replace(/^@/, ""));
+      if (it.platform) subBits.push(String(it.platform));
+      if (it.niche) subBits.push(String(it.niche));
+      if (it.region) subBits.push(String(it.region));
+      if (it.category && !it.name) subBits.push(String(it.category));
+      var sub = subBits.length
+        ? '<div class="it-sub">' + escapeHtml(subBits.join(" · ").slice(0, 90)) + "</div>" : "";
+
+      // --- meta chips ---
+      var chips = [];
+      // score: prefer explicit score, then the *_score family, then sim/views.
+      var scoreRaw = (it.score != null) ? it.score
+        : (it.total_score != null) ? it.total_score
+        : (it.alpha_score != null) ? it.alpha_score
+        : (it.match_score != null) ? it.match_score
+        : (it.sim != null) ? it.sim
+        : (it.views != null) ? it.views
+        : null;
+      var scoreFmt = scoreRaw != null ? fmtScore(scoreRaw) : null;
+      if (scoreFmt != null) {
+        var scoreLabel = (it.alpha_score != null || it.total_score != null) ? "alpha " : "score ";
+        chips.push('<span class="it-chip score">' + scoreLabel + escapeHtml(scoreFmt) + "</span>");
+      }
+      if (it.followers != null && it.followers !== "") {
+        var f = fmtNum(it.followers);
+        if (f) chips.push('<span class="it-chip">' + escapeHtml(f) + " followers</span>");
+      }
+      if (it.engagement_pct != null && it.engagement_pct !== "") {
+        chips.push('<span class="it-chip eng">' + escapeHtml(String(it.engagement_pct)) + "% eng</span>");
+      }
+      // SAFE cost only — aggregate estimated market cost, NEVER a real quote.
+      if (it.estimated_market_cost != null && it.estimated_market_cost !== "") {
+        chips.push('<span class="it-chip cost">Est. ' + escapeHtml(fmtCost(it.estimated_market_cost)) + "</span>");
+      }
+      if (it.funding) chips.push('<span class="it-chip">' + escapeHtml(String(it.funding)) + "</span>");
+      if (it.posts != null) chips.push('<span class="it-chip">' + escapeHtml(String(it.posts)) + " posts</span>");
+      if (it.total_views != null) {
+        var tv = fmtNum(it.total_views);
+        if (tv) chips.push('<span class="it-chip">' + escapeHtml(tv) + " views</span>");
+      }
+      if (it.source) chips.push('<span class="it-chip">' + escapeHtml(String(it.source).slice(0, 24)) + "</span>");
+      var meta = chips.length ? '<div class="it-meta">' + chips.join("") + "</div>" : "";
+
+      var delay = Math.min(i, 6) * 55; // stagger
+      return '<div class="card-item" style="--d:' + delay + 'ms">' +
+        itemAvatar(it) +
+        '<div class="it-main"><span class="it-title">' + title + "</span>" + sub + meta + "</div>" +
+      "</div>";
     }
 
     var activeChain = null;
@@ -883,14 +1588,9 @@
           kindHtml + latencyHtml +
         "</div>";
 
-      var items = (spec.items || []).slice(0, 6).map(function (it) {
-        var title = escapeHtml(it.title || it.text || "");
-        var meta = [];
-        var scoreVal = (it.score != null) ? it.score : it.views;
-        if (scoreVal != null) meta.push("score " + escapeHtml(String(scoreVal)).slice(0, 6));
-        if (it.source) meta.push(escapeHtml(String(it.source)));
-        var metaHtml = meta.length ? '<div class="it-meta">' + meta.map(function (m) { return "<span>" + m + "</span>"; }).join("") + "</div>" : "";
-        return '<div class="card-item"><span class="it-title">' + title + "</span>" + metaHtml + "</div>";
+      var items = (spec.items || []).slice(0, 6).map(function (it, i) {
+        it = it || {};
+        return renderItem(it, i);
       }).join("");
 
       card.innerHTML = head + (items ? '<div class="card-body">' + items + "</div>" : "");
@@ -928,6 +1628,7 @@
       setChain("Retrieving from Moss", steps);
 
       bumpHud(matches.length, ms);
+      setRetrievalQuery(d.query, matches.length);
 
       var card = {
         step: "··",
@@ -950,6 +1651,8 @@
       if (!evt.type || !EVIDENCE_TYPES.has(evt.type) || !Array.isArray(evt.items)) return;
       var ms = clampMs(evt.latency_ms);
       bumpHud(evt.items.length, ms);
+      litRecall(evt.type);
+      if (evt.insight || evt.title) setRetrievalQuery(evt.title || evt.insight, evt.items.length);
       setChain(evt.insight || "Retrieving", [
         { t: (evt.index || "moss") + (ms != null ? " · " + ms + "ms" : ""), res: true },
       ]);
@@ -987,6 +1690,7 @@
     // ============================================================
     function isAgent(participant) {
       if (!participant) return false;
+      var LK = getLK();
       try {
         if (LK && LK.ParticipantKind && participant.kind === LK.ParticipantKind.Agent) return true;
       } catch (e) {}
@@ -1029,6 +1733,7 @@
     // LIVEKIT CONNECT — official vanilla pattern, all in the gesture.
     // ============================================================
     function buildRoom() {
+      var LK = getLK();
       var r = new LK.Room({ adaptiveStream: true, dynacast: true });
 
       r.on(LK.RoomEvent.TrackSubscribed, function (track, pub, participant) {
@@ -1076,7 +1781,7 @@
     async function connect() {
       if (connected) return room;
       if (connecting) return null;
-      if (!LK) {
+      if (!getLK()) {
         setStatus("error", "LiveKit SDK missing");
         return null;
       }
@@ -1085,12 +1790,25 @@
       setStatus("connecting");
 
       // STEP 2: fetch a fresh token from the SAME-ORIGIN /token endpoint.
+      // Personalization contract (point ③): user_id / memory_enabled / refresh_profile / language.
+      // refresh_profile is a ONE-SHOT flag — read it, then clear the key immediately.
+      var refreshProfile = lsGet("ansio_refresh_profile", "0") === "1";
+      if (refreshProfile) lsDel("ansio_refresh_profile");
+      var personalization = {
+        user_id: ensureUserId(),
+        memory_enabled: lsGet("ansio_memory_enabled", "0") === "1",
+        refresh_profile: refreshProfile,
+        language: lsGet("ansio_language", "auto"),
+      };
       var cd;
       try {
         var resp = await fetch(TOKEN_ENDPOINT, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ room_config: { agents: [{ agent_name: AGENT_NAME }] } }),
+          body: JSON.stringify(Object.assign(
+            { room_config: { agents: [{ agent_name: AGENT_NAME }] } },
+            personalization
+          )),
         });
         if (!resp.ok) {
           throw new Error("token endpoint " + TOKEN_ENDPOINT + " returned HTTP " + resp.status);
@@ -1231,6 +1949,19 @@
     els.openL.addEventListener("click", function () { els.app.setAttribute("data-rail-l", "open"); });
     els.openR.addEventListener("click", function () { els.app.setAttribute("data-rail-r", "open"); });
     els.scrim.addEventListener("click", closeRails);
+
+    // ============================================================
+    // READY FLAG — fade the aurora + heavy backdrop layers in AFTER first
+    // paint so the initial frame isn't taxed by a big compositing layer
+    // (b-flicker §4b). rAF keeps it off the critical first-paint path.
+    // ============================================================
+    function markReady() {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { document.body.classList.add("ready"); });
+      });
+    }
+    if (document.readyState === "complete" || document.readyState === "interactive") markReady();
+    else window.addEventListener("DOMContentLoaded", markReady);
 
     // ============================================================
     // PUBLIC HOOK (parity with prior window.ANSIO_BRIDGE surface)

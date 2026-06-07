@@ -69,15 +69,46 @@ app.add_middleware(
 )
 
 
-# Never let the browser cache the page/bridge.js — a stale bundle once baked the
-# wrong token endpoint and survived soft refreshes. no-store kills that class of
-# bug so a single reload always picks up the latest UI + bridge logic.
+# Cache policy by resource class (b-flicker P0 — .omc/research/ansio-v5/b-flicker.md §1/§5).
+#
+# The old one-size `no-store` killed StaticFiles' free ETags, so every refresh
+# re-downloaded the 479KB LiveKit UMD in full over the SSH tunnel — the main
+# cause of the "refresh flicker". We now split by resource class:
+#
+#   * dynamic API (/token, /health, JSON): no-store (contains a JWT; never cache)
+#   * immutable third-party vendor bundles (vendor/*.js): long immutable cache
+#     so a second refresh sends If-None-Match and gets a 304 (0-byte body)
+#   * business HTML/JS (index.html, bridge.js): no-cache = "must revalidate via
+#     ETag every time" — still always-fresh (regains the stale-bundle safety the
+#     old no-store gave) but a 304 saves the body transfer.
+#
+# StaticFiles already emits a strong ETag + Last-Modified; we just stop clobbering
+# it. The historical stale-endpoint bug cannot recur: index.html now references
+# the same-origin relative /token, and no-cache still revalidates on every load.
+_DYNAMIC_PREFIXES = ("/token", "/health")
+
+
 @app.middleware("http")
-async def _no_store(request: Request, call_next):
+async def _cache_policy(request: Request, call_next):
     resp = await call_next(request)
     path = request.url.path
-    if path.endswith((".html", ".js", "/")) or path == "":
+
+    # Dynamic, secret-bearing endpoints: never store (the /token route also sets
+    # this on its own JSONResponse; this is belt-and-suspenders for all verbs).
+    if any(path == p or path.startswith(p + "/") for p in _DYNAMIC_PREFIXES):
         resp.headers["Cache-Control"] = "no-store, max-age=0"
+        return resp
+
+    # Immutable third-party bundles: cache hard, revalidate effectively never.
+    # (Bust by renaming the file if the vendor bundle is ever upgraded.)
+    if path.startswith("/app/vendor/") and path.endswith(".js"):
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+    # Business HTML/JS (and the root redirect): allow storage but force an ETag
+    # revalidation on every load → 304 when unchanged, fresh bytes when changed.
+    if path.endswith((".html", ".js", "/")) or path == "":
+        resp.headers["Cache-Control"] = "no-cache"
     return resp
 
 
@@ -147,6 +178,17 @@ async def token(request: Request) -> JSONResponse:
     except Exception:
         pass
 
+    # Client preferences (settings panel contract): stable user id + memory and
+    # language flags. All optional with safe defaults so an older client (or a
+    # foreign body shape) keeps working unchanged.
+    _prefs = body if isinstance(body, dict) else {}
+    stable_user_id = str(_prefs.get("user_id") or "").strip()
+    memory_enabled = bool(_prefs.get("memory_enabled", False))
+    refresh_profile = bool(_prefs.get("refresh_profile", False))
+    language = str(_prefs.get("language") or "auto").lower()
+    if language not in ("en", "zh", "auto"):
+        language = "auto"
+
     # Unique identity + room per visit (route.ts pattern) so repeated demos do
     # not collide and the agent dispatch fires fresh each time.
     suffix = random.randint(0, 9999)
@@ -176,7 +218,16 @@ async def token(request: Request) -> JSONResponse:
                 agents=[
                     api.RoomAgentDispatch(
                         agent_name=agent_name,
-                        metadata=json.dumps({"user_id": participant_identity}),
+                        # Stable client id (settings panel) wins over the random
+                        # per-visit identity so Moss memory survives reconnects.
+                        metadata=json.dumps(
+                            {
+                                "user_id": stable_user_id or participant_identity,
+                                "memory_enabled": memory_enabled,
+                                "refresh_profile": refresh_profile,
+                                "language": language,
+                            }
+                        ),
                     )
                 ]
             )
