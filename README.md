@@ -65,7 +65,7 @@ gap between what a creator is worth and what the market charges.
 | | |
 |---|---|
 | 🎙️ **Voice-native** | Talk or type — both reach the same agent. Real LiveKit WebRTC session with **streaming captions** that update in place, not a transcript box. |
-| ⚡ **Moss real-time recall** | A multi-hop retrieval chain runs in **~13 ms** end to end (P50 **3.1 ms**/hop). A slow vector DB (~432 ms/hop) would stall the conversation for ~2 s. |
+| ⚡ **Moss real-time recall** | A 5-hop retrieval chain measures **~9 ms** end to end (P50 **1.8 ms**/hop, warm). A slow vector DB (~432 ms/hop) would stall the conversation for ~2 s. |
 | 🎬 **Staged story reveal** | Cards don't dump at once — the right rail advances **beat by beat with the consultation** (competitors → their playbook → similar-but-underpriced → alpha shortlist), enforced by an eval-tested tool-ordering discipline. |
 | 📊 **Alpha ranking** | Pre-computed 7-signal scoring; Moss only *retrieves* at runtime, so the answer is instant. |
 | 🧠 **Consent-gated memory** | Toggle **Memory** on and ANSIO distills each call into a user profile stored in Moss — next session it greets you knowing your product, platform and budget. Toggle off = zero reads, zero writes. One-click profile reset. |
@@ -105,9 +105,9 @@ flowchart LR
 Stage ordering is enforced two ways: a hard tool-ordering discipline in the
 system prompt (regression-tested by `tests/staged_flow_eval.py` against the
 live brain) and a per-turn card-type guard in the agent. Each hop is a Moss
-query at ~3 ms; a full recall chain is **~13 ms** of retrieval. That speed is
-the product — at 432 ms/hop the agent would talk over a 2-second pause.
-**This is why it has to be Moss.**
+query at ~2 ms (P50 1.8 ms, measured warm); a full 5-hop recall chain is
+**~9 ms** of retrieval. That speed is the product — at 432 ms/hop the agent
+would talk over a 2-second pause. **This is why it has to be Moss.**
 
 ## 🛠️ Built with
 
