@@ -2446,9 +2446,15 @@
       if (it.source) chips.push('<span class="it-chip">' + escapeHtml(String(it.source).slice(0, 24)) + "</span>");
       var meta = chips.length ? '<div class="it-meta">' + chips.join("") + "</div>" : "";
 
+      // surface the agent's rationale (reason/why/takeaway) the backend emits on
+      // roi_forecast / playbook / LLM-authored cards — invisible otherwise.
+      var reasonRaw = it.reason || it.why || it.takeaway || it.insight || "";
+      var reason = reasonRaw
+        ? '<div class="it-sub">' + escapeHtml(String(reasonRaw).replace(/\s+/g, " ").slice(0, 120)) + "</div>" : "";
+
       return '<div class="card-item" style="--d:' + itemDelay(i) + 'ms">' +
         itemAvatar(it) +
-        '<div class="it-main"><span class="it-title">' + title + "</span>" + sub + meta + "</div>" +
+        '<div class="it-main"><span class="it-title">' + title + "</span>" + sub + reason + meta + "</div>" +
       "</div>";
     }
 
@@ -2510,7 +2516,8 @@
         var who = whoBits.length ? '<span class="cag-who">' + escapeHtml(whoBits.join(" · ").slice(0, 48)) + "</span>" : "";
         var icon = ANGLE_ICONS[i % ANGLE_ICONS.length];
         var hue = BAR_HUES[i % BAR_HUES.length];
-        var hook = it.hook ? '<p class="cag-hook">' + escapeHtml(String(it.hook).slice(0, 120)) + "</p>" : "";
+        var hookRaw = it.hook || it.reason || it.why || "";
+        var hook = hookRaw ? '<p class="cag-hook">' + escapeHtml(String(hookRaw).slice(0, 120)) + "</p>" : "";
         var titleLine = (it.hook && (it.title || it.angle))
           ? '<p class="cag-t">' + escapeHtml(String(it.title || "").slice(0, 90)) + "</p>" : "";
         return '<div class="cag rin" style="--d:' + itemDelay(i) + 'ms">' +
