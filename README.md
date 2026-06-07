@@ -161,6 +161,18 @@ collapsed into an *aggregated* benchmark only; individual quotes never enter the
 indexes, never appear on screen (the UI shows **“Estimated Market Cost”**), and
 raw data files are git-ignored. Credentials live only in a git-ignored `.env`.
 
+## 👥 Team
+
+Built by a cross-border team for the YC × Moss Conversational AI Hackathon.
+
+| | Role |
+|---|---|
+| [**@baizhiyuan**](https://github.com/baizhiyuan) | Backend — LiveKit agent, Moss retrieval & recall chain, alpha scoring, token server |
+| [**@SkylarWJY**](https://github.com/SkylarWJY) | Frontend — three-panel console design & demo |
+| [**@clfhaha1234**](https://github.com/clfhaha1234) | Product — PRD & retrieval contract |
+
+<sub>Engineered with [Claude Code](https://claude.com/claude-code).</sub>
+
 ## 🙌 Acknowledgements
 
 Built in 24 hours for the **YC × Moss Conversational AI Hackathon**.
