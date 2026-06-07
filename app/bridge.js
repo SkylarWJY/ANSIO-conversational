@@ -76,10 +76,12 @@
           room_config: { agents: [{ agent_name: AGENT_NAME }] },
         }),
       });
-      if (!r.ok) throw new Error("token " + r.status);
+      if (!r.ok) throw new Error("token endpoint " + TOK + " → HTTP " + r.status);
       cd = await r.json();
     } catch (e) {
-      toast("Voice unavailable, staying in typed/static mode: " + e.message);
+      // Self-explaining failure: show exactly which URL failed and why, so a
+      // network error (tunnel/port) is distinguishable from an HTTP error.
+      toast("Voice unavailable (" + TOK + "): " + e.message);
       return null;
     }
 

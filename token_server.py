@@ -69,6 +69,18 @@ app.add_middleware(
 )
 
 
+# Never let the browser cache the page/bridge.js — a stale bundle once baked the
+# wrong token endpoint and survived soft refreshes. no-store kills that class of
+# bug so a single reload always picks up the latest UI + bridge logic.
+@app.middleware("http")
+async def _no_store(request: Request, call_next):
+    resp = await call_next(request)
+    path = request.url.path
+    if path.endswith((".html", ".js", "/")) or path == "":
+        resp.headers["Cache-Control"] = "no-store, max-age=0"
+    return resp
+
+
 def _required_env() -> tuple[str, str, str]:
     """Read the three LiveKit secrets by NAME. Raises if any is missing."""
     key = os.environ.get("LIVEKIT_API_KEY")
