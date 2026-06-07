@@ -1,0 +1,30 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env / secrets
+.env
+.env.*
+*.local
+*.key
+*.pem
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Logs / temp
+*.log
+.cache/
+tmp/

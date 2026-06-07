@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ANSIO — The First Conversational Growth Engineer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:        #08090B;
+    --bg-1:      #0B0D10;
+    --bg-2:      #101317;
+    --bg-3:      #15191E;
+    --line:      #1B2026;
+    --line-2:    #272E37;
+    --txt:       #E7EAED;
+    --dim:       #8B929B;
+    --faint:     #565D67;
+    --ghost:     #363C45;
+    --alpha:     #3DF5A0;
+    --alpha-dk:  #0F3D2A;
+    --alpha-gl:  rgba(61,245,160,.14);
+    --amber:     #F5B23D;
+    --blue:      #5B9DFF;
+    --violet:    #9B82FF;
+    --red:       #FF5C6A;
+    --mono:      'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans:      'Inter', -apple-system, system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--txt);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--alpha-gl); color: var(--alpha); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ghost); }
+
+  .mono { font-family: var(--mono); }
+  .up   { text-transform: uppercase; letter-spacing: .12em; }
+
+  /* ===================== APP SHELL ===================== */
+  .app {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 48px 1fr 30px;
+    grid-template-columns: 232px 1fr 320px;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "rail   main   ctx"
+      "status status status";
+  }
+
+  /* ===================== TOP BAR ===================== */
+  .topbar {
+    grid-area: topbar;
+    display: flex; align-items: center;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--bg-1), var(--bg));
+    padding: 0 16px;
+    gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: radial-gradient(circle at 30% 25%, var(--alpha), #0c8f5a 70%);
+    box-shadow: 0 0 0 1px var(--alpha-dk), 0 0 18px var(--alpha-gl);
+    position: relative; flex: none;
+  }
+  .logo::after {
+    content:""; position:absolute; inset:5px; border-radius:3px;
+    background: var(--bg); box-shadow: inset 0 0 0 1.5px var(--alpha);
+  }
+  .brand b { font-size: 14px; letter-spacing: .14em; font-weight: 700; }
+  .brand .sub { color: var(--faint); font-size: 11px; letter-spacing: .04em; border-left:1px solid var(--line-2); padding-left:12px; }
+  .topbar .spacer { flex: 1; }
+  .pill {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    padding: 4px 9px; border-radius: 5px; border: 1px solid var(--line-2);
+    color: var(--dim); display: flex; align-items: center; gap: 6px;
+  }
+  .pill .dot { width:6px; height:6px; border-radius:50%; background: var(--alpha); box-shadow:0 0 8px var(--alpha); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .pill.live { color: var(--alpha); border-color: var(--alpha-dk); }
+  .clock { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+
+  /* ===================== LEFT RAIL ===================== */
+  .rail {
+    grid-area: rail;
+    border-right: 1px solid var(--line);
+    background: var(--bg-1);
+    padding: 16px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    overflow: hidden;
+  }
+  .rail .label { font-size:10px; letter-spacing:.16em; color: var(--faint); padding: 6px 10px; margin-top: 10px; }
+  .navitem {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 7px;
+    color: var(--dim); font-size: 13px; font-weight: 500;
+    position: relative; transition: all .25s; cursor: default;
+  }
+  .navitem .ix { font-family: var(--mono); font-size: 10px; color: var(--ghost); width: 14px; }
+  .navitem.active { background: var(--bg-3); color: var(--txt); }
+  .navitem.active .ix { color: var(--alpha); }
+  .navitem.active::before {
+    content:""; position:absolute; left:-12px; top:8px; bottom:8px; width:2px;
+    background: var(--alpha); border-radius: 2px; box-shadow: 0 0 10px var(--alpha);
+  }
+  .navitem.done { color: var(--dim); }
+  .navitem.done .ix::after { content:"✓"; color: var(--alpha); }
+  .navitem.done .ix span { display:none; }
+
+  .rail .moat {
+    margin-top: auto; border: 1px solid var(--line); border-radius: 9px;
+    padding: 12px; background: var(--bg);
+  }
+  .moat h5 { font-size: 10px; letter-spacing: .14em; color: var(--faint); margin-bottom: 9px; }
+  .moat .row { display:flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; padding: 3px 0; }
+  .moat .row span:first-child { color: var(--dim); }
+  .moat .row span:last-child { color: var(--txt); }
+
+  /* ===================== MAIN ===================== */
+  .main { grid-area: main; overflow-y: auto; scroll-behavior: smooth; position: relative; }
+  .main-inner { max-width: 880px; margin: 0 auto; padding: 28px 28px 120px; }
+
+  /* hero / empty state */
+  .hero { padding-top: 36px; }
+  .hero .eyebrow { font-family: var(--mono); font-size:11px; letter-spacing:.18em; color: var(--alpha); margin-bottom: 18px; }
+  .hero h1 { font-size: 34px; line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; max-width: 640px; }
+  .hero h1 .g { color: var(--faint); }
+  .hero p.lede { color: var(--dim); font-size: 15px; margin-top: 16px; max-width: 560px; }
+  .vs {
+    display:flex; gap: 10px; margin-top: 26px; flex-wrap: wrap;
+  }
+  .vs .card {
+    flex:1; min-width: 210px; border:1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; background: var(--bg-1);
+  }
+  .vs .card.them { opacity: .62; }
+  .vs .card h4 { font-size: 12px; letter-spacing:.04em; margin-bottom: 6px; display:flex; align-items:center; gap:7px; }
+  .vs .card.them h4::before { content:""; width:6px;height:6px;border-radius:50%; background: var(--faint); }
+  .vs .card.us h4::before   { content:""; width:6px;height:6px;border-radius:50%; background: var(--alpha); box-shadow:0 0 8px var(--alpha); }
+  .vs .card p { color: var(--dim); font-size: 13px; }
+  .vs .card.us { border-color: var(--alpha-dk); box-shadow: 0 0 30px -12px var(--alpha-gl); }
+
+  .cta {
+    margin-top: 30px; display:flex; gap: 12px; align-items: center;
+  }
+  .btn {
+    font-family: var(--sans); font-weight: 600; font-size: 13.5px;
+    padding: 11px 18px; border-radius: 8px; border: 1px solid var(--alpha-dk);
+    background: linear-gradient(180deg, #133b2c, #0d2a1f);
+    color: var(--alpha); cursor: pointer; transition: all .2s;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .btn:hover { background: #143a2b; box-shadow: 0 0 26px -8px var(--alpha-gl); }
+  .btn .kbd { font-family: var(--mono); font-size:10px; color: var(--alpha); opacity:.6; border:1px solid var(--alpha-dk); border-radius:4px; padding: 1px 5px; }
+  .btn.ghost { background: transparent; border-color: var(--line-2); color: var(--dim); }
+  .btn.ghost:hover { color: var(--txt); border-color: var(--ghost); box-shadow:none; }
+
+  /* ===================== CONVERSATION ===================== */
+  .thread { display: flex; flex-direction: column; gap: 18px; }
+  .msg { display: flex; gap: 12px; animation: rise .4s ease both; }
+  @keyframes rise { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform:none } }
+  .av {
+    width: 26px; height: 26px; border-radius: 7px; flex: none; margin-top: 1px;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  }
+  .msg.user .av { background: var(--bg-3); color: var(--dim); border: 1px solid var(--line-2); }
+  .msg.ai .av {
+    background: radial-gradient(circle at 30% 25%, var(--alpha), #0c8f5a 75%);
+    color: #04130c; box-shadow: 0 0 16px -3px var(--alpha-gl);
+  }
+  .bubble { flex: 1; padding-top: 2px; }
+  .bubble .who { font-size: 11px; color: var(--faint); letter-spacing:.06em; margin-bottom: 4px; }
+  .msg.user .bubble .who { color: var(--dim); }
+  .bubble .body { font-size: 14.5px; color: var(--txt); }
+  .msg.user .bubble .body { color: var(--txt); font-weight: 500; }
+  .cursor { display:inline-block; width: 7px; height: 15px; background: var(--alpha); margin-left: 2px; vertical-align: -2px; animation: blink .9s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0 } }
+
+  /* intake form */
+  .intake { margin-top: 14px; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--bg-1); }
+  .intake .ih { padding: 11px 15px; border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:8px; }
+  .intake .ih .t { font-size: 12px; letter-spacing:.04em; color: var(--dim); }
+  .intake .ih .c { margin-left:auto; font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+  .qrow {
+    display: grid; grid-template-columns: 200px 1fr; gap: 0;
+    border-bottom: 1px solid var(--line); align-items: stretch;
+  }
+  .qrow:last-child { border-bottom: 0; }
+  .qrow .q { padding: 13px 15px; color: var(--dim); font-size: 13px; display:flex; align-items:center; gap: 9px; border-right: 1px solid var(--line); }
+  .qrow .q .n { font-family: var(--mono); font-size:10px; color: var(--alpha); border:1px solid var(--alpha-dk); border-radius:4px; padding:1px 5px; }
+  .qrow .a { padding: 13px 15px; font-family: var(--mono); font-size: 13px; color: var(--txt); display:flex; align-items:center; min-height: 47px; }
+  .qrow .a.pending { color: var(--faint); }
+  .qrow.answered { background: linear-gradient(90deg, transparent, var(--alpha-gl) 220%); }
+  .tag { font-family: var(--mono); font-size:11px; padding:2px 7px; border-radius:5px; background: var(--bg-3); border:1px solid var(--line-2); color: var(--blue); }
+
+  /* ===================== RETRIEVAL CHAIN ===================== */
+  .section-head { margin: 30px 0 16px; display:flex; align-items:center; gap: 12px; }
+  .section-head .k { font-family: var(--mono); font-size: 10px; letter-spacing:.16em; color: var(--alpha); }
+  .section-head h3 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .section-head .line { flex:1; height:1px; background: linear-gradient(90deg, var(--line), transparent); }
+  .section-head .meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+
+  .chain { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .node {
+    display: grid; grid-template-columns: 36px 1fr; gap: 14px;
+    padding-bottom: 4px; position: relative;
+  }
+  .node .gut { display: flex; flex-direction: column; align-items: center; }
+  .node .orb {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    border: 1.5px solid var(--line-2); background: var(--bg-1);
+    display: grid; place-items: center; font-family: var(--mono); font-size: 11px; color: var(--faint);
+    transition: all .4s; z-index: 2;
+  }
+  .node .stem { width: 1.5px; flex: 1; background: var(--line); margin: 3px 0; min-height: 14px; transition: background .4s; }
+  .node:last-child .stem { display: none; }
+  .node .panel {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg-1);
+    margin-bottom: 12px; overflow: hidden; opacity: .45; transition: opacity .4s, border-color .4s;
+  }
+  .node .panel .ph { padding: 11px 14px; display:flex; align-items:center; gap: 10px; }
+  .node .panel .ph .nm { font-size: 13.5px; font-weight: 600; }
+  .node .panel .ph .st { margin-left:auto; font-family: var(--mono); font-size: 10px; letter-spacing:.08em; color: var(--faint); display:flex; align-items:center; gap:6px; }
+  .node .panel .ph .st .spin { width:9px;height:9px;border:1.5px solid var(--line-2); border-top-color: var(--alpha); border-radius:50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .node .body2 { padding: 0 14px 12px; display: none; }
+  .node .logline { font-family: var(--mono); font-size: 11.5px; color: var(--dim); padding: 2px 0; display:flex; gap:8px; animation: rise .3s both; }
+  .node .logline .arr { color: var(--alpha); }
+  .node .logline .v { color: var(--txt); }
+  .node .logline .d { color: var(--faint); margin-left:auto; }
+  .node .chips { display:flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 5px;
+    border: 1px solid var(--line-2); color: var(--dim); display:flex; gap:6px; align-items:center;
+  }
+  .chip b { color: var(--txt); font-weight: 500; }
+  .chip.good b { color: var(--alpha); }
+  .chip.warn b { color: var(--amber); }
+
+  /* states */
+  .node.active .orb { border-color: var(--alpha); color: var(--alpha); box-shadow: 0 0 14px var(--alpha-gl); background: var(--alpha-dk); }
+  .node.active .panel { opacity: 1; border-color: var(--line-2); }
+  .node.active .body2, .node.done .body2 { display: block; }
+  .node.done .body2 { opacity: .82; }
+  .node.done .orb { border-color: var(--alpha-dk); background: var(--alpha-dk); color: var(--alpha); }
+  .node.done .orb::after { content:"✓"; }
+  .node.done .orb .n2 { display:none; }
+  .node.done .stem { background: var(--alpha-dk); }
+  .node.done .panel { opacity: 1; }
+  .node.done .panel .ph .st { color: var(--alpha); }
+
+  /* ===================== OUTPUT DOSSIER ===================== */
+  .dossier { display: none; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .metric {
+    border: 1px solid var(--line); border-radius: 11px; background: var(--bg-1); padding: 15px;
+    position: relative; overflow: hidden;
+  }
+  .metric.hero-m { border-color: var(--alpha-dk); background: linear-gradient(180deg, #0c1813, var(--bg-1)); box-shadow: 0 0 40px -18px var(--alpha-gl); }
+  .metric .ml { font-size: 10.5px; letter-spacing:.1em; color: var(--faint); margin-bottom: 9px; display:flex; align-items:center; gap:6px; }
+  .metric .mv { font-family: var(--mono); font-size: 27px; font-weight: 600; letter-spacing: -0.02em; }
+  .metric.hero-m .mv { color: var(--alpha); }
+  .metric .md { font-family: var(--mono); font-size: 11px; margin-top: 6px; }
+  .metric .md.up { color: var(--alpha); text-transform: none; letter-spacing: 0; }
+  .metric .md.down { color: var(--alpha); }
+  .metric .spark { position:absolute; right:12px; top:14px; font-family: var(--mono); font-size:10px; color: var(--faint); }
+
+  .panel-box { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-1); margin-bottom: 14px; overflow: hidden; }
+  .panel-box .pbh { padding: 13px 16px; border-bottom: 1px solid var(--line); display:flex; align-items:center; gap: 10px; }
+  .panel-box .pbh h4 { font-size: 13.5px; font-weight: 600; }
+  .panel-box .pbh .sub { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-left:auto; }
+
+  table.crt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.crt th {
+    text-align: left; padding: 9px 16px; font-size: 10px; letter-spacing:.1em; color: var(--faint);
+    border-bottom: 1px solid var(--line); font-weight: 500;
+  }
+  table.crt th.r, table.crt td.r { text-align: right; }
+  table.crt td { padding: 11px 16px; border-bottom: 1px solid var(--line); font-family: var(--mono); }
+  table.crt tr:last-child td { border-bottom: 0; }
+  table.crt tr.crow:hover td { background: var(--bg-2); }
+  .crt .handle { display:flex; align-items:center; gap: 10px; font-family: var(--sans); font-weight: 500; }
+  .crt .ph-av { width: 26px; height:26px; border-radius: 7px; flex:none; display:grid; place-items:center; font-family:var(--mono); font-size:11px; font-weight:600; }
+  .crt .plat { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .crt .fitbar { display:flex; align-items:center; gap: 8px; }
+  .crt .fitbar .track { width: 46px; height: 4px; border-radius: 3px; background: var(--bg-3); overflow:hidden; }
+  .crt .fitbar .fill { height:100%; background: var(--alpha); border-radius:3px; box-shadow:0 0 8px var(--alpha-gl); }
+  .crt .alpha-score { color: var(--alpha); font-weight: 600; }
+  .badge { font-family: var(--mono); font-size: 9.5px; padding: 2px 6px; border-radius: 4px; letter-spacing:.05em; }
+  .badge.under { background: var(--alpha-dk); color: var(--alpha); }
+  .badge.fair  { background: var(--bg-3); color: var(--dim); border:1px solid var(--line-2); }
+
+  .outreach { padding: 6px; }
+  .ocard { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 8px; background: var(--bg); }
+  .ocard .oh { display:flex; align-items:center; gap: 10px; margin-bottom: 10px; }
+  .ocard .oh .nm { font-weight: 600; font-size: 13.5px; }
+  .ocard .oh .angle { font-family: var(--mono); font-size: 10px; color: var(--amber); border:1px solid #3a2e10; background:#1a1408; padding: 2px 7px; border-radius: 5px; }
+  .ocard .dm { font-family: var(--mono); font-size: 12px; color: var(--dim); line-height: 1.65; background: var(--bg-2); border:1px solid var(--line); border-radius: 8px; padding: 11px 13px; white-space: pre-wrap; }
+  .ocard .dm .hl { color: var(--alpha); }
+
+  /* timeline */
+  .timeline { padding: 14px 16px; }
+  .week { display:grid; grid-template-columns: 80px 1fr; gap: 14px; padding: 11px 0; border-bottom: 1px dashed var(--line); }
+  .week:last-child { border-bottom: 0; }
+  .week .wk { font-family: var(--mono); font-size: 11px; color: var(--alpha); padding-top: 2px; }
+  .week .wk .d { color: var(--faint); display:block; font-size:10px; margin-top:2px; }
+  .week .acts { display:flex; flex-direction: column; gap: 7px; }
+  .week .act { display:flex; align-items:flex-start; gap: 9px; font-size: 13px; color: var(--dim); }
+  .week .act .ck { width:15px;height:15px;border-radius:4px;border:1px solid var(--line-2); flex:none; margin-top:1px; display:grid; place-items:center; font-size:9px; color:var(--alpha); }
+  .week .act b { color: var(--txt); font-weight: 500; }
+  .week .act .m { margin-left:auto; font-family: var(--mono); font-size: 10.5px; color: var(--faint); white-space:nowrap; }
+
+  /* ===================== RIGHT CONTEXT ===================== */
+  .ctx { grid-area: ctx; border-left: 1px solid var(--line); background: var(--bg-1); padding: 16px 14px; overflow-y: auto; display:flex; flex-direction: column; gap: 16px; }
+  .ctx-box h5 { font-size: 10px; letter-spacing:.16em; color: var(--faint); margin-bottom: 11px; display:flex; align-items:center; gap:8px; }
+  .ctx-box h5 .ln { flex:1; height:1px; background: var(--line); }
+  .stat-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .stat { border: 1px solid var(--line); border-radius: 9px; padding: 11px; background: var(--bg); }
+  .stat .sv { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+  .stat .sl { font-size: 10px; color: var(--faint); margin-top: 3px; letter-spacing:.04em; }
+  .stat .sv.a { color: var(--alpha); }
+
+  .feed { display:flex; flex-direction: column; gap: 2px; max-height: 260px; overflow:hidden; }
+  .fl { font-family: var(--mono); font-size: 10.5px; color: var(--faint); padding: 3px 0; display:flex; gap: 8px; animation: rise .3s both; }
+  .fl .ts { color: var(--ghost); }
+  .fl .ev { color: var(--dim); }
+  .fl .ev .hl { color: var(--alpha); }
+  .fl .ev .hb { color: var(--blue); }
+
+  .equ {
+    border: 1px solid var(--line); border-radius: 9px; background: var(--bg); padding: 13px;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .equ .ttl { color: var(--faint); font-size:10px; letter-spacing:.12em; margin-bottom:9px; }
+  .equ .ln2 { display:flex; justify-content: space-between; padding: 3px 0; color: var(--dim); }
+  .equ .ln2 b { color: var(--txt); }
+  .equ .res { margin-top:9px; padding-top:9px; border-top:1px solid var(--line); display:flex; justify-content:space-between; }
+  .equ .res b { color: var(--alpha); font-size: 13px; }
+
+  /* ===================== STATUS BAR ===================== */
+  .status {
+    grid-area: status; border-top: 1px solid var(--line); background: var(--bg-1);
+    display:flex; align-items:center; padding: 0 14px; gap: 16px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--faint); letter-spacing:.04em;
+  }
+  .status .seg { display:flex; align-items:center; gap: 7px; }
+  .status .seg .d { width:5px;height:5px;border-radius:50%; }
+  .status .seg .d.g { background: var(--alpha); box-shadow:0 0 6px var(--alpha); }
+  .status .seg .d.b { background: var(--blue); }
+  .status .seg b { color: var(--dim); font-weight: 500; }
+  .status .spacer { flex:1; }
+  .status .pg { color: var(--alpha); }
+
+  .fade-in { animation: rise .5s ease both; }
+  .hidden { display: none !important; }
+
+  /* ===================== RETRIEVAL — entity flow ===================== */
+  .speedbar { display:flex; align-items:center; gap:14px; border:1px solid var(--line); border-radius:10px;
+    background: linear-gradient(180deg,#0c130f,var(--bg-1)); padding:10px 14px; margin-bottom:16px; font-family:var(--mono); font-size:11px; }
+  .speedbar .big { font-size:15px; color:var(--alpha); }
+  .speedbar .track { flex:1; height:5px; border-radius:3px; background:var(--bg-3); overflow:hidden; position:relative; }
+  .speedbar .moss { position:absolute; left:0; top:0; bottom:0; width:2%; background:var(--alpha); box-shadow:0 0 10px var(--alpha); transition:width .4s; }
+  .speedbar .warn { color:var(--red); }
+
+  /* narrator — agent thinks out loud, pinned while the chain scrolls */
+  .narrator { position:sticky; top:6px; z-index:20; display:flex; gap:12px; align-items:flex-start;
+    border:1px solid var(--alpha-dk); border-radius:12px; padding:13px 16px; margin-bottom:14px;
+    background:linear-gradient(180deg,#0c1712,#0a0f0c); box-shadow:0 10px 30px -14px rgba(0,0,0,.7), 0 0 30px -14px var(--alpha-gl); }
+  .narrator .av { width:28px; height:28px; border-radius:8px; flex:none; display:grid; place-items:center;
+    font-family:var(--mono); font-size:12px; font-weight:600; background:radial-gradient(circle at 30% 25%, var(--alpha), #0c8f5a 75%); color:#04130c; }
+  .narrator .ncol { flex:1; min-width:0; }
+  .narrator .nhead { display:flex; align-items:center; gap:9px; margin-bottom:5px; }
+  .narrator .who2 { font-size:11px; letter-spacing:.06em; color:var(--dim); }
+  .narrator .nwave { height:16px; }
+  .narrator .ntext { font-size:14.5px; color:var(--txt); line-height:1.5; min-height:21px; }
+
+  .srctag { font-family:var(--mono); font-size:8.5px; letter-spacing:.08em; padding:2px 6px; border-radius:4px; border:1px solid var(--line-2); color:var(--faint); }
+  .srctag.real    { color:var(--alpha); border-color:var(--alpha-dk); }
+  .srctag.seed    { color:var(--amber); border-color:#3a2e10; }
+  .srctag.partial { color:var(--amber); border-color:#3a2e10; }
+  .srctag.calc    { color:var(--violet); border-color:#2a2350; }
+
+  .io { display:flex; align-items:center; gap:9px; font-family:var(--mono); font-size:11.5px; margin:3px 0; border-radius:6px; padding:3px 5px; }
+  .io .iolab { font-size:8.5px; letter-spacing:.1em; padding:2px 6px; border-radius:4px; border:1px solid var(--line-2); color:var(--faint); flex:none; }
+  .io.in  .iolab { color:var(--blue);  border-color:#1a3050; }
+  .io.out .iolab { color:var(--alpha); border-color:var(--alpha-dk); }
+  .io .ioval { color:var(--dim); }
+  .io .cf { color:var(--blue); font-size:10px; opacity:.85; }
+  .io.flash { animation: ioflash 1.1s ease; }
+  @keyframes ioflash { 0%{ background:var(--alpha-gl) } 100%{ background:transparent } }
+
+  .ents { display:flex; flex-wrap:wrap; gap:6px; margin:9px 0 4px; }
+  .ent { font-family:var(--mono); font-size:11px; padding:4px 9px; border-radius:7px; border:1px solid var(--line-2);
+    background:var(--bg-2); display:inline-flex; gap:7px; align-items:center; animation: entpop .34s cubic-bezier(.2,.8,.2,1) both; }
+  .ent b { color:var(--txt); font-weight:500; }
+  .ent .em { color:var(--faint); font-size:9.5px; }
+  .ent.alpha b { color:var(--alpha); }
+  @keyframes entpop { from{ opacity:0; transform:translateY(5px) scale(.95) } to{ opacity:1; transform:none } }
+
+  .hopmeter { display:flex; align-items:center; gap:12px; margin-top:9px; font-family:var(--mono); font-size:10px; }
+  .hopmeter .mossbar { color:var(--alpha); }
+  .hopmeter .mossbar b { color:var(--faint); font-weight:500; margin-right:4px; }
+  .hopmeter .vbar { color:var(--faint); text-decoration:line-through; opacity:.55; }
+  .hopmeter .scan { color:var(--faint); margin-left:auto; }
+  .node.done .panel:hover { border-color: var(--line-2); }
+
+  /* ===================== INTERACTIVE COMPOSER ===================== */
+  .composer { display:flex; align-items:center; gap:10px; margin-top:26px; border:1px solid var(--line-2); border-radius:12px;
+    background:var(--bg-1); padding:8px 8px 8px 16px; max-width:640px; transition:border-color .2s, box-shadow .2s; }
+  .composer:focus-within { border-color: var(--alpha-dk); box-shadow:0 0 30px -12px var(--alpha-gl); }
+  .composer .cmic { color:var(--alpha); font-size:15px; }
+  .composer input { flex:1; background:transparent; border:0; outline:0; color:var(--txt); font-family:var(--sans); font-size:14px; }
+  .composer input::placeholder { color:var(--faint); }
+  .suggest { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+  .suggest .sl { font-family:var(--mono); font-size:10.5px; color:var(--faint); letter-spacing:.04em; }
+  .chipbtn { font-family:var(--mono); font-size:11.5px; padding:5px 11px; border-radius:7px; border:1px solid var(--line-2);
+    background:var(--bg-1); color:var(--dim); cursor:pointer; transition:all .18s; }
+  .chipbtn:hover { color:var(--txt); border-color:var(--ghost); background:var(--bg-2); }
+
+  /* ===================== CREATOR DRILL-DOWN ===================== */
+  tr.crow { cursor:pointer; }
+  .crt .chev { color:var(--faint); display:inline-block; transition:transform .2s, color .2s; font-family:var(--mono); margin-right:2px; }
+  tr.crow.open .chev { transform:rotate(90deg); color:var(--alpha); }
+  tr.crow.open td { background:var(--bg-2); }
+  tr.drill td { padding:0 16px; border-bottom:1px solid var(--line); background:var(--bg-2); }
+  .drillinner { display:grid; grid-template-columns:1.15fr 1fr; gap:18px; padding:14px 0 16px; animation: rise .3s ease both; }
+  .drillinner .why { font-family:var(--sans); font-size:13px; color:var(--dim); line-height:1.6; }
+  .drillinner .why b { color:var(--txt); font-weight:600; }
+  .alpha-break { font-family:var(--mono); font-size:11.5px; }
+  .alpha-break .abr { display:flex; align-items:center; gap:10px; padding:4px 0; }
+  .alpha-break .abr .kk { color:var(--faint); width:96px; flex:none; }
+  .alpha-break .abr .track2 { flex:1; height:4px; border-radius:3px; background:var(--bg-3); overflow:hidden; }
+  .alpha-break .abr .fill2 { height:100%; background:var(--alpha); border-radius:3px; box-shadow:0 0 8px var(--alpha-gl); }
+  .alpha-break .abr .vv { color:var(--txt); width:74px; text-align:right; flex:none; }
+  .alpha-break .abres { display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+  .alpha-break .abres b { color:var(--alpha); }
+
+  /* ===================== VOICE ===================== */
+  .av.spk.on { animation: ring 1.1s ease-out infinite; }
+  @keyframes ring { 0%{box-shadow:0 0 0 0 var(--alpha-gl)} 70%{box-shadow:0 0 0 11px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+  .who .saytag { color: var(--alpha); font-family: var(--mono); font-size:9px; letter-spacing:.08em; border:1px solid var(--alpha-dk); border-radius:4px; padding:1px 5px; margin-left:7px; }
+  .who .saytag::before { content:"● "; }
+  .who .micon { color: var(--faint); font-family: var(--mono); font-size:9px; letter-spacing:.04em; margin-left:7px; }
+  .vrow { margin: 7px 0 3px; display:flex; align-items:center; gap:11px; }
+  .voicebar { display:inline-flex; align-items:flex-end; gap:3px; height:22px; }
+  .voicebar i { width:3px; height:6px; border-radius:2px; background:var(--alpha); opacity:.45; transition: opacity .3s; }
+  .voicebar.live i { animation: wv .9s ease-in-out infinite; }
+  .voicebar.dim i { background: var(--dim); }
+  .voicebar.done i { opacity:.22; height:6px !important; animation:none; }
+  @keyframes wv { 0%,100%{height:5px; opacity:.4} 50%{height:20px; opacity:1} }
+  .vrow .dur { font-family: var(--mono); font-size:10.5px; color: var(--faint); }
+  .pill.vtog { cursor:pointer; user-select:none; transition: all .2s; }
+  .pill.vtog:hover { border-color: var(--ghost); color: var(--txt); }
+  .pill.vtog.off { color: var(--faint); }
+  .pill.vtog.off .dot { background: var(--faint); box-shadow:none; animation:none; }
+
+  @media (max-width: 1180px) {
+    .app { grid-template-columns: 200px 1fr 0; }
+    .ctx { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <b>ANSIO</b>
+      <span class="sub">The First Conversational Growth Engineer</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="pill mono" id="enginePill"><span class="dot"></span> ENGINE&nbsp;IDLE</div>
+    <div class="pill mono live"><span class="dot"></span> CREATOR&nbsp;ALPHA&nbsp;v3</div>
+    <div class="pill mono vtog" id="voiceTog"><span class="dot"></span> VOICE&nbsp;ON</div>
+    <div class="clock mono" id="clock">--:--:--</div>
+  </header>
+
+  <!-- LEFT RAIL -->
+  <nav class="rail">
+    <div class="label up">Session</div>
+    <div class="navitem active" data-nav="intake"><span class="ix"><span>01</span></span> Intake</div>
+    <div class="navitem" data-nav="retrieval"><span class="ix"><span>02</span></span> Retrieval Chain</div>
+    <div class="navitem" data-nav="alpha"><span class="ix"><span>03</span></span> Creator Alpha</div>
+    <div class="navitem" data-nav="plan"><span class="ix"><span>04</span></span> Growth Plan</div>
+
+    <div class="label up">Data Moat</div>
+    <div class="moat">
+      <h5 class="up">Closed-loop index</h5>
+      <div class="row"><span>Creators tracked</span><span id="m-creators">142,800</span></div>
+      <div class="row"><span>Partnerships</span><span id="m-parts">38,412</span></div>
+      <div class="row"><span>Audience signals</span><span id="m-sig">9.2M</span></div>
+      <div class="row"><span>Price benchmarks</span><span id="m-price">61,030</span></div>
+      <div class="row"><span>Outcome loops</span><span style="color:var(--alpha)">live</span></div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main" id="main">
+    <div class="main-inner">
+
+      <!-- HERO -->
+      <section class="hero" id="hero">
+        <div class="eyebrow mono">CONVERSATIONAL GROWTH OS · SESSION READY</div>
+        <h1>Voice in. <span class="g">Growth plan out.</span><br/>The first growth engineer you talk to.</h1>
+        <p class="lede">Describe what you launched. ANSIO runs a live multi-hop retrieval chain across competitors, creator partnerships, audience signals and pricing benchmarks — then returns an executable creator acquisition plan with modeled CAC, reach and ROI.</p>
+
+        <div class="vs">
+          <div class="card them">
+            <h4>Moss & creator search tools</h4>
+            <p>Find <b>people</b>. You get a list. You still have to figure out who, why, for how much, and what to say.</p>
+          </div>
+          <div class="card us">
+            <h4>ANSIO</h4>
+            <p>Finds <b>opportunities</b>. A conversation becomes a priced, sequenced, modeled acquisition plan — the growth engineer, not the database.</p>
+          </div>
+        </div>
+
+        <div class="composer">
+          <span class="cmic">🎙</span>
+          <input id="prodInput" autocomplete="off" value="We launched an AI coding tool."
+                 placeholder="Tell ANSIO what you launched…" />
+          <button class="btn" id="runBtn">Start call <span class="kbd">↵</span></button>
+        </div>
+        <div class="suggest">
+          <span class="sl">try:</span>
+          <button class="chipbtn" data-prod="We launched an AI coding tool.">AI coding tool</button>
+          <button class="chipbtn" data-prod="We built an AI design tool for product teams.">AI design tool</button>
+          <button class="chipbtn" data-prod="We launched a developer API platform.">Dev API platform</button>
+          <button class="btn ghost" id="skipBtn" style="margin-left:6px">Skip to plan</button>
+        </div>
+      </section>
+
+      <!-- CONVERSATION + CHAIN + DOSSIER injected here -->
+      <section class="thread hidden" id="thread"></section>
+      <section id="retrievalWrap" class="hidden"></section>
+      <section id="dossier" class="dossier"></section>
+
+    </div>
+  </main>
+
+  <!-- RIGHT CONTEXT -->
+  <aside class="ctx">
+    <div class="ctx-box">
+      <h5 class="up">Live Telemetry <span class="ln"></span></h5>
+      <div class="stat-grid">
+        <div class="stat"><div class="sv" id="t-hops">0</div><div class="sl">Retrieval hops</div></div>
+        <div class="stat"><div class="sv" id="t-docs">0</div><div class="sl">Docs retrieved</div></div>
+        <div class="stat"><div class="sv a" id="t-cands">0</div><div class="sl">Creator candidates</div></div>
+        <div class="stat"><div class="sv" id="t-lat">0<span style="font-size:11px">ms</span></div><div class="sl">Chain latency</div></div>
+      </div>
+    </div>
+
+    <div class="ctx-box">
+      <h5 class="up">Retrieval Stream <span class="ln"></span></h5>
+      <div class="feed" id="feed">
+        <div class="fl"><span class="ts">--:--</span><span class="ev">awaiting founder input…</span></div>
+      </div>
+    </div>
+
+    <div class="ctx-box" id="alphaEqu" style="display:none">
+      <h5 class="up">Creator Alpha Model <span class="ln"></span></h5>
+      <div class="equ">
+        <div class="ttl up">α = fit · reach ÷ price · decay</div>
+        <div class="ln2"><span>audience fit</span><b id="e-fit">—</b></div>
+        <div class="ln2"><span>effective reach</span><b id="e-reach">—</b></div>
+        <div class="ln2"><span>price percentile</span><b id="e-price">—</b></div>
+        <div class="ln2"><span>saturation decay</span><b id="e-decay">—</b></div>
+        <div class="res"><span>creator alpha</span><b id="e-alpha">—</b></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- STATUS -->
+  <footer class="status">
+    <div class="seg"><span class="d g"></span> <span>system</span> <b>operational</b></div>
+    <div class="seg"><span class="d b"></span> <span>model</span> <b>ansio-growth-1</b></div>
+    <div class="seg"><span>index</span> <b id="s-index">synced 14s ago</b></div>
+    <div class="spacer"></div>
+    <div class="seg"><span>phase</span> <b class="pg" id="s-phase">intake</b></div>
+    <div class="seg mono" id="s-sid">SID·7F3A-90C2</div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   ANSIO — demo engine. Fully scripted, deterministic, no deps.
+   ============================================================ */
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* live clock */
+function tick(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  $('#clock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ET`;
+}
+setInterval(tick, 1000); tick();
+
+/* telemetry feed */
+function feed(html){
+  const f = $('#feed');
+  const d = new Date(); const p=n=>String(n).padStart(2,'0');
+  const ts = `${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const el = document.createElement('div');
+  el.className='fl';
+  el.innerHTML = `<span class="ts">${ts}</span><span class="ev">${html}</span>`;
+  f.prepend(el);
+  while(f.children.length > 11) f.lastChild.remove();
+}
+
+/* animated number */
+function countUp(el, to, {dur=900, prefix='', suffix='', dp=0}={}){
+  const start = performance.now();
+  const from = 0;
+  function step(now){
+    const t = Math.min(1,(now-start)/dur);
+    const e = 1-Math.pow(1-t,3);
+    const v = from + (to-from)*e;
+    el.textContent = prefix + v.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp}) + suffix;
+    if(t<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function setNav(name){
+  $$('.navitem').forEach(n=>{
+    const k = n.dataset.nav;
+    n.classList.remove('active');
+    if(k===name) n.classList.add('active');
+  });
+}
+function navDone(name){
+  const n = $(`.navitem[data-nav="${name}"]`);
+  if(n){ n.classList.add('done'); n.classList.remove('active'); }
+}
+const setPhase = p => $('#s-phase').textContent = p;
+
+async function typeInto(el, text, speed=18){
+  el.innerHTML = '';
+  const cur = document.createElement('span'); cur.className='cursor';
+  el.appendChild(cur);
+  for(const ch of text){
+    cur.insertAdjacentText('beforebegin', ch);
+    await sleep(speed + (ch===' '?10:0));
+  }
+  cur.remove();
+}
+
+/* ---------- DATA (mock, realistic) ---------- */
+const INTAKE = [
+  {q:'Who is your target customer?', a:'Indie devs + small eng teams shipping AI features', tag:'ICP'},
+  {q:'What is your current CAC?',     a:'$118 blended · target < $60', tag:'CAC'},
+  {q:'What is your monthly budget?',  a:'$25,000 / mo', tag:'BUDGET'},
+  {q:'What is your 30-day goal?',     a:'1,500 activated signups', tag:'GOAL'},
+];
+
+/* 8-hop retrieval chain — each hop's IN is the previous hop's OUT (true multi-hop).
+   ~8ms/hop is the Moss moat; a vector DB at ~432ms/hop would stall the conversation. */
+const CHAIN = [
+  { name:'Retrieve competitors', type:'retrieve', src:'seed', lat:7, scanned:312,
+    in:'seed · "AI coding tool"',
+    ents:[['Cursor','$400M ARR'],['GitHub Copilot','leader'],['Codeium','PLG'],['Replit','IDE'],['Cody','Sourcegraph']],
+    out:'5 direct competitors' },
+
+  { name:'Retrieve competitor creator partnerships', type:'retrieve', src:'partial', lat:8, scanned:1204,
+    in:'5 direct competitors',
+    ents:[['@ThePrimeagen','Cursor ×2'],['@Fireship','Copilot'],['@t3dotgg','Windsurf'],['@AIJason','Cursor'],['@CodeReport','Codeium']],
+    out:'1,204 validated sponsorships' },
+
+  { name:'Retrieve creator profiles + sell-through', type:'retrieve', src:'real', lat:7, scanned:963,
+    in:'rival-validated creators',
+    ents:[['@AIJason','85% dev'],['@swyx','91% dev'],['@codewithtom','88% dev'],['@ThePrimeagen','77% dev'],['@Fireship','dev-broad']],
+    out:'profiles + sell-through proxy' },
+
+  { name:'Retrieve similar creators (look-alike)', type:'retrieve', src:'real', lat:8, scanned:963,
+    in:'profile vectors',
+    ents:[['@thebuilderdao','64K KOC'],['@devmarcy','158K'],['@kentcdodds','adjacent'],['@theo','overlap'],['+26 more','long tail']],
+    out:'30 candidates · 212 net-new' },
+
+  { name:'Price → CPM → find underpriced', type:'calc', src:'real', lat:6, scanned:0,
+    in:'30 candidates + real quotes',
+    ents:[['@AIJason','α 2.31'],['@swyx','α 2.04'],['@codewithtom','α 1.97'],['@thebuilderdao','α 1.79'],['@devmarcy','α 1.62']],
+    out:'9 underpriced · α > 1.6', alpha:true },
+
+  { name:'Optimize bundle (iterative recall)', type:'retrieve', src:'calc', lat:9, scanned:142,
+    in:'9 underpriced + $25k budget',
+    ents:[['Anchors ×3','$11k'],['Look-alikes ×2','$8k'],['KOC ×2','$6k'],['overlap','< 12%'],['fit','within budget']],
+    out:'7-creator non-overlapping bundle' },
+
+  { name:'Recommend content angles', type:'retrieve', src:'seed', lat:8, scanned:430,
+    in:'7-creator bundle',
+    ents:[['@AIJason','build-in-public'],['@codewithtom','refactor-live'],['@swyx','thread teardown'],['@devmarcy','60s hook'],['…','per-creator']],
+    out:'per-creator best angle' },
+
+  { name:'Estimate expected ROI', type:'calc', src:'real', lat:7, scanned:0,
+    in:'bundle + proprietary backtests',
+    ents:[['CAC','$47'],['Reach','1.04M'],['Signups','1,840'],['ROI','4.6×'],['vs goal','+23%']],
+    out:'modeled 30-day ROI · floor', alpha:true },
+];
+
+const SRCLABEL = { real:'REAL DATA', seed:'DEMO SEED', partial:'PARTIAL REAL', calc:'COMPUTED' };
+
+const CREATORS = [
+  {h:'@AIJason', p:'YouTube · 214K', av:'AJ', c:'#1f6feb', fit:92, cpm:'$31', cac:'$44', alpha:'2.31', tag:'under',
+   reach:'1.0M dev-intent', pct:'p31 · 38% under', decay:'0.93',
+   why:'Rival-validated (Cursor sponsored ×2). 85% dev audience, repeat-collab = proven sell-through. Priced 38% below his reach percentile → highest alpha in the set.'},
+  {h:'@swyx',    p:'X · 187K',       av:'SW', c:'#9b82ff', fit:89, cpm:'$28', cac:'$49', alpha:'2.04', tag:'under',
+   reach:'620K technical', pct:'p28 · 31% under', decay:'0.90',
+   why:'91% dev/founder audience, deep AI-tooling credibility. Comment-quality far above like-ratio. Not yet saturated by rivals — low fatigue decay.'},
+  {h:'@codewithtom', p:'YouTube · 96K', av:'CT', c:'#f5b23d', fit:88, cpm:'$22', cac:'$41', alpha:'1.97', tag:'under',
+   reach:'310K hands-on', pct:'p22 · 44% under', decay:'0.95',
+   why:'Cheapest CPM in the bundle with 88% builder audience. Tutorial format converts trials directly. Lowest projected CAC ($41).'},
+  {h:'@thebuilderdao', p:'X · 64K',   av:'BD', c:'#3df5a0', fit:84, cpm:'$19', cac:'$52', alpha:'1.79', tag:'under',
+   reach:'140K KOC', pct:'p19 · 41% under', decay:'0.97',
+   why:'Net-new — no rival has touched this audience. Small but pristine fit; fills the audience gap competitors left open.'},
+  {h:'@devmarcy', p:'TikTok · 158K',  av:'DM', c:'#ff5c6a', fit:81, cpm:'$24', cac:'$57', alpha:'1.62', tag:'fair',
+   reach:'480K short-form', pct:'p24 · fair', decay:'0.88',
+   why:'Top-of-funnel reach on TikTok for the 60-second hook. Fairly priced (not underpriced) but expands reach into a younger builder cohort.'},
+];
+
+const OUTREACH = [
+  {nm:'@AIJason', av:'AJ', c:'#1f6feb', angle:'BUILD-IN-PUBLIC DEMO',
+   dm:`Hey Jason — your "ship an app in 20 min" series is exactly how our users think.\nWe built an AI coding tool that <span class="hl">cuts the boilerplate you always cut on stream</span>.\nWant a no-strings key + a custom demo idea your audience would actually use?`},
+  {nm:'@codewithtom', av:'CT', c:'#f5b23d', angle:'TUTORIAL INTEGRATION',
+   dm:`Tom — noticed your audience is 88% hands-on builders.\nWe'd love a <span class="hl">"refactor this legacy repo live"</span> collab — our tool does the diff, you do the teaching.\nFlat fee + perf bonus on signups. Open to a 15-min call?`},
+];
+
+const PLAN = [
+  {wk:'Week 1', d:'days 1–7', acts:[
+    ['Lock 3 anchor creators', '@AIJason · @swyx · @codewithtom', '$11k'],
+    ['Ship custom demo assets', 'per-creator hook + trial link', '2d'],
+  ]},
+  {wk:'Week 2', d:'days 8–14', acts:[
+    ['Go live: 2 long-form + 4 short', 'YouTube + X threads', '~480K reach'],
+    ['Spin up tracked trial keys', 'attribution per creator', 'live'],
+  ]},
+  {wk:'Week 3', d:'days 15–21', acts:[
+    ['Double down on top performer', 'reallocate $6k to best CAC', 'auto'],
+    ['Add 2 net-new look-alikes', '@thebuilderdao · @devmarcy', '$8k'],
+  ]},
+  {wk:'Week 4', d:'days 22–30', acts:[
+    ['Retarget engaged non-signups', 'creator-native follow-up', '$0'],
+    ['Outcome loop → re-rank index', 'feed CAC back to alpha model', '∞'],
+  ]},
+];
+
+/* ---------- ENGINE ---------- */
+let running = false;
+const main = $('#main');
+const scrollDown = () => main.scrollTo({top: main.scrollHeight, behavior:'smooth'});
+/* deterministic scroll to bring an element near the top of the viewport */
+function scrollToEl(el, offset=150){
+  if(!el) return;
+  const m = main; const prev = m.style.scrollBehavior; m.style.scrollBehavior='auto';
+  let o=0, n=el; while(n && n!==m){ o+=n.offsetTop; n=n.offsetParent; }
+  m.scrollTop = Math.max(0, o - offset);
+  m.style.scrollBehavior = prev;
+}
+
+function aiMsg(who='ANSIO'){
+  const m = document.createElement('div');
+  m.className='msg ai';
+  m.innerHTML = `<div class="av">A</div><div class="bubble"><div class="who">${who}</div><div class="body"></div></div>`;
+  $('#thread').appendChild(m);
+  return $('.body', m);
+}
+function userMsg(who='Founder'){
+  const m = document.createElement('div');
+  m.className='msg user';
+  m.innerHTML = `<div class="av">F</div><div class="bubble"><div class="who">${who}</div><div class="body"></div></div>`;
+  $('#thread').appendChild(m);
+  return $('.body', m);
+}
+
+/* ---------- VOICE ENGINE ---------- */
+const synth = window.speechSynthesis || null;
+let voiceOn = !!synth, ansioVoice = null;
+function pickVoice(){
+  if(!synth) return;
+  const vs = synth.getVoices();
+  ansioVoice = vs.find(v=>/Google US English/i.test(v.name))
+            || vs.find(v=>/Samantha/i.test(v.name))
+            || vs.find(v=>/(Ava|Allison|Zoe|Jenny|Aria)/i.test(v.name) && /en/i.test(v.lang))
+            || vs.find(v=>/en-US/i.test(v.lang))
+            || vs.find(v=>/^en/i.test(v.lang)) || vs[0] || null;
+}
+if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
+else { const p=$('#voiceTog'); if(p){ p.classList.add('off'); p.innerHTML='<span class="dot"></span> VOICE&nbsp;N/A'; } }
+
+function speak(text){
+  return new Promise(res=>{
+    if(!voiceOn || !synth){ res(); return; }
+    let done=false; const fin=()=>{ if(!done){done=true; res();} };
+    try{ synth.cancel(); }catch(e){}
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate=1.03; u.pitch=1.0; u.volume=1; if(ansioVoice) u.voice=ansioVoice;
+    u.onend=fin; u.onerror=fin;
+    synth.speak(u);
+    const words = text.trim().split(/\s+/).length;
+    setTimeout(fin, Math.max(2600, words*430));   /* safety if onend never fires */
+  });
+}
+function typeReveal(el, text, durMs){
+  return new Promise(res=>{
+    const n=text.length, per=Math.max(8, durMs/n);
+    el.innerHTML=''; const cur=document.createElement('span'); cur.className='cursor'; el.appendChild(cur);
+    let i=0;
+    const id=setInterval(()=>{ cur.insertAdjacentText('beforebegin', text[i++]); if(i>=n){ clearInterval(id); cur.remove(); res(); } }, per);
+  });
+}
+const bars = n => Array.from({length:n},(_,i)=>`<i style="animation-delay:${(i*0.07).toFixed(2)}s"></i>`).join('');
+
+function aiVoiceMsg(){
+  const m=document.createElement('div'); m.className='msg ai';
+  m.innerHTML=`<div class="av spk">A</div><div class="bubble">
+    <div class="who">ANSIO <span class="saytag">speaking</span></div>
+    <div class="vrow"><div class="voicebar live">${bars(11)}</div></div>
+    <div class="body"></div></div>`;
+  $('#thread').appendChild(m); scrollDown(); return m;
+}
+function founderVoiceMsg(){
+  const m=document.createElement('div'); m.className='msg user';
+  m.innerHTML=`<div class="av">F</div><div class="bubble">
+    <div class="who">Founder <span class="micon">🎙 voice in</span></div>
+    <div class="vrow"><div class="voicebar dim">${bars(8)}</div><span class="dur">0:0—</span></div>
+    <div class="body"></div></div>`;
+  $('#thread').appendChild(m); scrollDown(); return m;
+}
+async function speakReveal(msgEl, text){
+  const body=$('.body',msgEl), vb=$('.voicebar',msgEl), av=$('.av',msgEl);
+  av.classList.add('on');
+  const words=text.trim().split(/\s+/).length;
+  const estMs=Math.max(1100,(words/2.7)*1000);
+  await Promise.all([ typeReveal(body, text, estMs), speak(text) ]);
+  av.classList.remove('on');
+  if(vb){ vb.classList.remove('live'); vb.classList.add('done'); }
+  $('.saytag',msgEl)?.remove();
+  scrollDown();
+}
+async function voiceIn(msgEl, text, tag){
+  const body=$('.body',msgEl), vb=$('.voicebar',msgEl), dur=$('.dur',msgEl);
+  vb.classList.add('live');
+  await sleep(650);                                 /* listening */
+  await typeReveal(body, text, Math.max(700, text.length*24));   /* transcribe */
+  vb.classList.remove('live'); vb.classList.add('done');
+  const secs=Math.max(2, Math.round(text.length/13));
+  if(dur) dur.textContent=`0:0${secs}`;
+  if(tag) body.insertAdjacentHTML('beforeend', ` <span class="tag">${tag}</span>`);
+  scrollDown();
+}
+
+/* agent talks through the search — one conversational beat per hop */
+const NARRATION = [
+  "Alright — first let me see who you're actually up against.",
+  "Cursor, Copilot, Codeium — these already spend to reach your devs. So who have they been paying?",
+  "Interesting — ThePrimeagen ran with Cursor twice. Repeat deals mean it worked. Let me pull their real audiences.",
+  "Yeah — 85 to 91 percent developers, with real sell-through, not just views. Let me widen this to look-alikes your rivals haven't touched.",
+  "About thirty candidates, two-twelve net-new. Now the important part — I'm pricing each one to find who's underpriced.",
+  "There it is — nine creators the market is mispricing. Let me build a bundle that doesn't overlap and fits your twenty-five K.",
+  "Seven creators, complementary audiences. Now I'll grab the content angle that's historically converted best for each.",
+  "Last step — I'm projecting your ROI off our own backtests for similar AI tools.",
+];
+
+/* speak a narration line into the sticky narrator caption, synced */
+async function narrate(text){
+  const nt = $('#ntext'), nar = $('#narrator');
+  if(!nt) return;
+  const wave = $('.nwave', nar), av=$('.av', nar);
+  wave?.classList.add('live'); av?.classList.add('on');
+  const words = text.trim().split(/\s+/).length;
+  const estMs = Math.max(1300, (words/2.7)*1000);
+  await Promise.all([ typeReveal(nt, text, estMs), speak(text) ]);
+  wave?.classList.remove('live');
+}
+
+async function run(){
+  if(running) return; running = true;
+  $('#hero').classList.add('hidden');
+  $('#thread').classList.remove('hidden');
+  $('#enginePill').innerHTML = '<span class="dot"></span> ENGINE&nbsp;LIVE';
+  $('#enginePill').classList.add('live');
+
+  /* ===== VOICE CONVERSATION — one question at a time, back and forth ===== */
+  setPhase('listening'); feed('voice channel live · <span class="hl">ANSIO listening</span>');
+
+  const g = aiVoiceMsg();
+  await speakReveal(g, "Hey — I'm ANSIO, your growth engineer. Tell me what you just launched.");
+  await sleep(220);
+
+  const prod = ($('#prodInput')?.value || '').trim() || "We launched an AI coding tool.";
+  const u1 = founderVoiceMsg();
+  await voiceIn(u1, prod);
+  feed('founder: <span class="hb">'+prod.replace(/^We (launched|built) (an? )?/i,'').replace(/\.$/,'')+'</span>');
+  await sleep(240);
+
+  const q1 = aiVoiceMsg();
+  await speakReveal(q1, "Nice. Four quick questions and I'll build your plan. First — who is your target customer?");
+  const a1 = founderVoiceMsg();
+  await voiceIn(a1, "Indie devs and small eng teams shipping AI features.", "ICP");
+  feed('captured <span class="hb">ICP</span> · indie devs + small eng teams');
+  await sleep(200);
+
+  const q2 = aiVoiceMsg();
+  await speakReveal(q2, "Got it. What is your customer acquisition cost right now?");
+  const a2c = founderVoiceMsg();
+  await voiceIn(a2c, "About 118 dollars blended. I want it under 60.", "CAC");
+  feed('captured <span class="hb">CAC</span> · $118 → target &lt;$60');
+  await sleep(200);
+
+  const q3 = aiVoiceMsg();
+  await speakReveal(q3, "And how much are you spending a month?");
+  const a3 = founderVoiceMsg();
+  await voiceIn(a3, "Twenty-five thousand dollars a month.", "BUDGET");
+  feed('captured <span class="hb">BUDGET</span> · $25k / mo');
+  await sleep(200);
+
+  const q4 = aiVoiceMsg();
+  await speakReveal(q4, "Last one — what is your goal for the next thirty days?");
+  const a4 = founderVoiceMsg();
+  await voiceIn(a4, "Fifteen hundred activated signups.", "GOAL");
+  feed('captured <span class="hb">GOAL</span> · 1,500 signups');
+  await sleep(260);
+
+  navDone('intake'); setNav('retrieval');
+
+  /* ANSIO kicks off retrieval (spoken) */
+  const go = aiVoiceMsg();
+  await speakReveal(go, "Locked. Stay on the line — I'll think through this out loud so you can follow. Each step feeds the next.");
+  await sleep(250);
+
+  /* ===== RETRIEVAL CHAIN — entity-flow, 8 hops, IN→OUT chaining ===== */
+  setPhase('retrieval'); feed('initiating <span class="hl">multi-hop retrieval</span> · 8 hops');
+  const N = CHAIN.length;
+  const wrap = $('#retrievalWrap'); wrap.classList.remove('hidden');
+  wrap.innerHTML = `
+    <div class="section-head">
+      <span class="k mono">02 · RETRIEVAL CHAIN</span>
+      <h3>Multi-hop creator-alpha retrieval</h3>
+      <span class="line"></span>
+      <span class="meta mono" id="chainMeta">0 / ${N} hops</span>
+    </div>
+    <div class="speedbar">
+      <span><b class="big mono" id="sb-moss">0ms</b> <span style="color:var(--faint)">Moss · ${N} hops</span></span>
+      <div class="track"><div class="moss" id="sb-fill"></div></div>
+      <span class="vs mono">vs vector DB <span class="warn" id="sb-vdb">~3,400ms</span> · would stall the call</span>
+    </div>
+    <div class="narrator" id="narrator">
+      <div class="av spk on">A</div>
+      <div class="ncol">
+        <div class="nhead"><span class="who2">ANSIO</span><span class="saytag">thinking out loud</span>
+          <div class="voicebar live nwave">${bars(9)}</div></div>
+        <div class="ntext" id="ntext"></div>
+      </div>
+    </div>
+    <div class="chain" id="chain"></div>`;
+  const chainEl = $('#chain');
+
+  CHAIN.forEach((c,i)=>{
+    const n = document.createElement('div');
+    n.className='node'; n.id=`node${i}`;
+    n.innerHTML = `
+      <div class="gut"><div class="orb"><span class="n2">${i+1}</span></div><div class="stem"></div></div>
+      <div class="panel" data-hop="${i}">
+        <div class="ph">
+          <span class="nm">${c.name}</span>
+          <span class="srctag ${c.src}">${SRCLABEL[c.src]}</span>
+          <span class="st mono"><span class="lbl">queued</span></span>
+        </div>
+        <div class="body2">
+          <div class="io in"><span class="iolab">IN</span><span class="ioval"></span></div>
+          <div class="ents"></div>
+          <div class="io out"><span class="iolab">OUT</span><span class="ioval"></span></div>
+          <div class="hopmeter">
+            <span class="mossbar"><b>Moss</b> ${c.lat}ms</span>
+            <span class="vbar">vector DB ~${c.lat*54}ms</span>
+            <span class="scan mono">scanned ${c.scanned?c.scanned.toLocaleString('en-US'):'—'}</span>
+          </div>
+        </div>
+      </div>`;
+    chainEl.appendChild(n);
+  });
+  scrollToEl($('#narrator'), 80);
+  await sleep(220);
+
+  let totalDocs=0, totalLat=0, totalCands=0;
+  const VDB_TOTAL = CHAIN.reduce((s,c)=>s+c.lat*54,0);
+  $('#sb-vdb').textContent = '~'+VDB_TOTAL.toLocaleString('en-US')+'ms';
+
+  for(let i=0;i<N;i++){
+    const c = CHAIN[i];
+    const node = $(`#node${i}`);
+
+    /* agent talks through this step before it fires */
+    scrollToEl(node, 170);
+    await narrate(NARRATION[i]);
+    await sleep(160);
+
+    node.classList.add('active');
+    const st = $('.st', node), body=$('.body2',node);
+    st.innerHTML = `<span class="spin"></span> <span class="lbl">retrieving</span>`;
+    feed(`<span class="hl">hop ${i+1}</span> ${c.name.toLowerCase()}…`);
+    $('#t-hops').textContent = i+1;
+    $('#chainMeta').textContent = `${i+1} / ${N} hops`;
+    scrollToEl(node, 170);
+
+    /* IN row — explicitly the previous hop's OUT (chaining) */
+    const inRow = $('.io.in', node), inVal=$('.ioval', inRow);
+    inVal.textContent = i===0 ? c.in : c.in;
+    if(i>0){ inRow.classList.add('chained'); inVal.insertAdjacentHTML('afterbegin','<span class="cf">↳ from hop '+i+' &nbsp;</span>'); }
+    inRow.classList.add('flash');
+    await sleep(260);
+
+    /* entities materialize one by one */
+    const entWrap = $('.ents', node);
+    for(const [nm,meta] of c.ents){
+      const e=document.createElement('span');
+      e.className = 'ent' + (c.alpha?' alpha':'');
+      e.innerHTML = `<b>${nm}</b><span class="em">${meta}</span>`;
+      entWrap.appendChild(e);
+      feed(`<span class="${c.alpha?'hl':'hb'}">${nm}</span> <span style="color:var(--ghost)">${meta}</span>`);
+      scrollToEl(node, 170);
+      await sleep(230);
+    }
+
+    /* OUT row */
+    $('.io.out .ioval', node).textContent = c.out;
+
+    /* latency + counters at Moss speed (~8ms/hop) */
+    totalLat += c.lat;
+    $('#t-lat').innerHTML = totalLat + '<span style="font-size:11px">ms</span>';
+    $('#sb-moss').textContent = totalLat+'ms';
+    $('#sb-fill').style.width = Math.max(2, (totalLat/VDB_TOTAL)*100).toFixed(1)+'%';
+    if(c.scanned){ totalDocs+=c.scanned; countUp($('#t-docs'), totalDocs, {dur:420}); }
+    if(i===3){ totalCands=30; $('#t-cands').textContent='30'; }
+
+    st.innerHTML = `<span class="lbl">done · ${c.lat}ms</span>`;
+    node.classList.remove('active'); node.classList.add('done');
+
+    /* carry-forward: flash next hop's IN to show the hand-off */
+    const next=$(`#node${i+1} .io.in`);
+    if(next){ next.classList.add('flash'); }
+
+    /* alpha equation populates on the underpriced hop */
+    if(i===4){
+      $('#alphaEqu').style.display='block';
+      $('#e-fit').textContent='0.84'; $('#e-reach').textContent='1.0M';
+      $('#e-price').textContent='p22'; $('#e-decay').textContent='0.91';
+      $('#e-alpha').textContent='α 1.84'; setNav('alpha');
+      feed('<span class="hl">creator alpha</span> computed · 9 underpriced');
+    }
+    await sleep(360);
+  }
+  navDone('retrieval'); navDone('alpha');
+  feed(`<span class="hl">${totalLat}ms total</span> · vector DB would need ~${VDB_TOTAL.toLocaleString('en-US')}ms`);
+  /* settle the narrator */
+  const nt=$('#ntext'); if(nt) nt.textContent='Done — eight hops, sixty milliseconds. Pulling your plan together.';
+  $('#narrator .nwave')?.classList.remove('live');
+  const narAv=$('#narrator .av'); if(narAv) narAv.classList.remove('on');
+  const narTag=$('#narrator .saytag'); if(narTag){ narTag.textContent='done'; }
+  await sleep(700);
+
+  /* 4. ANSIO delivers (spoken) */
+  setNav('plan'); setPhase('synthesis');
+  const aDeliver = aiVoiceMsg();
+  await speakReveal(aDeliver, "Chain complete. I found nine undervalued creators your rivals haven't locked up. Here's your executable thirty-day plan.");
+  feed('<span class="hl">growth plan generated</span> · 7 creators · 18 actions');
+  await sleep(300);
+
+  renderDossier();
+  setPhase('plan ready');
+  $('#enginePill').innerHTML = '<span class="dot"></span> PLAN&nbsp;DELIVERED';
+  navDone('plan');
+  running = false;
+}
+
+function renderDossier(){
+  const d = $('#dossier');
+  d.style.display='block';
+  d.innerHTML = `
+    <div class="section-head">
+      <span class="k mono">04 · GROWTH PLAN</span>
+      <h3>Creator acquisition plan — AI coding tool</h3>
+      <span class="line"></span>
+      <span class="meta mono">$25k/mo · 30 days · modeled</span>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="ml up">Expected CAC</div>
+        <div class="mv" id="mv-cac">$0</div><div class="md down">↓ 60% vs $118 today</div></div>
+      <div class="metric"><div class="ml up">Expected Reach</div>
+        <div class="mv" id="mv-reach">0</div><div class="md up">7 creators · dev-intent</div></div>
+      <div class="metric"><div class="ml up">Expected Signups</div>
+        <div class="mv" id="mv-signups">0</div><div class="md up">vs 1,500 goal ✓</div></div>
+      <div class="metric hero-m"><div class="ml up">Expected ROI</div>
+        <div class="mv" id="mv-roi">0×</div><div class="md up">creator alpha · 30d</div></div>
+    </div>
+
+    <div class="panel-box">
+      <div class="pbh"><h4>Recommended creators</h4><span class="sub mono">click a row to inspect the alpha · α = fit·reach ÷ price·decay</span></div>
+      <table class="crt">
+        <thead><tr>
+          <th>CREATOR</th><th>AUDIENCE FIT</th><th class="r">EST CPM</th>
+          <th class="r">PROJ. CAC</th><th class="r">ALPHA</th><th class="r">SIGNAL</th>
+        </tr></thead>
+        <tbody>
+        ${CREATORS.map((c,i)=>`
+          <tr class="crow" data-cr="${i}">
+            <td><div class="handle"><span class="chev">▸</span><div class="ph-av" style="background:${c.c}22;color:${c.c};border:1px solid ${c.c}55">${c.av}</div>
+              <div>${c.h}<div class="plat">${c.p}</div></div></div></td>
+            <td><div class="fitbar"><div class="track"><div class="fill" style="width:${c.fit}%"></div></div><span>${c.fit}%</span></div></td>
+            <td class="r">${c.cpm}</td>
+            <td class="r" style="color:var(--alpha)">${c.cac}</td>
+            <td class="r alpha-score">${c.alpha}</td>
+            <td class="r"><span class="badge ${c.tag}">${c.tag==='under'?'UNDERVALUED':'FAIR'}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel-box">
+      <div class="pbh"><h4>Recommended outreach</h4><span class="sub mono">creator-native · generated by ANSIO</span></div>
+      <div class="outreach">
+        ${OUTREACH.map(o=>`
+          <div class="ocard">
+            <div class="oh"><div class="ph-av" style="background:${o.c}22;color:${o.c};border:1px solid ${o.c}55">${o.av}</div>
+              <span class="nm">${o.nm}</span><span class="angle mono">${o.angle}</span></div>
+            <div class="dm">${o.dm}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="pbh"><h4>30-day campaign plan</h4><span class="sub mono">sequenced · budget-allocated · closed-loop</span></div>
+      <div class="timeline">
+        ${PLAN.map(w=>`
+          <div class="week">
+            <div class="wk">${w.wk}<span class="d">${w.d}</span></div>
+            <div class="acts">
+              ${w.acts.map(a=>`<div class="act"><span class="ck">○</span><div><b>${a[0]}</b> — ${a[1]}</div><span class="m">${a[2]}</span></div>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:14px 0 8px;color:var(--faint);font-family:var(--mono);font-size:11px">
+      Moss finds people. <span style="color:var(--alpha)">ANSIO finds opportunities.</span> &nbsp;·&nbsp; Voice in. Growth plan out.
+    </div>
+  `;
+  scrollDown();
+  /* animate metrics */
+  setTimeout(()=>{
+    countUp($('#mv-cac'), 47, {prefix:'$', dur:1100});
+    countUp($('#mv-reach'), 1.04, {suffix:'M', dur:1100, dp:2});
+    countUp($('#mv-signups'), 1840, {dur:1200});
+    countUp($('#mv-roi'), 4.6, {suffix:'×', dur:1200, dp:1});
+  }, 200);
+  setTimeout(scrollDown, 400);
+}
+
+/* skip straight to plan */
+async function skip(){
+  if(running) return;
+  $('#hero').classList.add('hidden');
+  $('#thread').classList.remove('hidden');
+  $('#thread').innerHTML='';
+  const u = userMsg(); u.textContent='We launched an AI coding tool.';
+  $$('.navitem').forEach(n=>n.classList.add('done'));
+  setNav('plan'); setPhase('plan ready');
+  $('#enginePill').innerHTML='<span class="dot"></span> PLAN&nbsp;DELIVERED'; $('#enginePill').classList.add('live');
+  $('#t-hops').textContent='8'; $('#t-docs').textContent='4,014';
+  $('#t-cands').textContent='30'; $('#t-lat').innerHTML='60<span style="font-size:11px">ms</span>';
+  renderDossier();
+}
+
+$('#runBtn').addEventListener('click', run);
+$('#skipBtn').addEventListener('click', skip);
+$('#voiceTog').addEventListener('click', ()=>{
+  if(!synth) return;
+  voiceOn = !voiceOn;
+  const p = $('#voiceTog');
+  p.classList.toggle('off', !voiceOn);
+  p.innerHTML = `<span class="dot"></span> VOICE&nbsp;${voiceOn?'ON':'OFF'}`;
+  if(!voiceOn){ try{ synth.cancel(); }catch(e){} }
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Enter' && !running && !$('#hero').classList.contains('hidden')) run(); });
+
+/* suggestion chips set the product input */
+$$('.chipbtn').forEach(b=> b.addEventListener('click', ()=>{
+  const inp=$('#prodInput'); if(inp){ inp.value=b.dataset.prod; inp.focus(); }
+}));
+
+/* creator drill-down — click a row to expand the alpha breakdown */
+$('#dossier').addEventListener('click', e=>{
+  const row = e.target.closest('tr.crow'); if(!row) return;
+  const i = +row.dataset.cr; const c = CREATORS[i];
+  const sib = row.nextElementSibling;
+  if(sib && sib.classList.contains('drill')){ sib.remove(); row.classList.remove('open'); return; }
+  $$('#dossier tr.drill').forEach(d=>d.remove());
+  $$('#dossier tr.crow.open').forEach(r=>r.classList.remove('open'));
+  row.classList.add('open');
+  const underM = c.pct.match(/(\d+)%\s*under/);
+  const underW = underM ? +underM[1]*2 : 16;
+  const reachW = c.reach.includes('M') ? 96 : Math.min(92, Math.round(parseInt(c.reach)/2));
+  const tr = document.createElement('tr'); tr.className='drill';
+  tr.innerHTML = `<td colspan="6"><div class="drillinner">
+    <div class="why"><b>Why ANSIO picked ${c.h}.</b><br>${c.why}</div>
+    <div class="alpha-break">
+      <div class="abr"><span class="kk">audience fit</span><div class="track2"><div class="fill2" style="width:${c.fit}%"></div></div><span class="vv">${(c.fit/100).toFixed(2)}</span></div>
+      <div class="abr"><span class="kk">effective reach</span><div class="track2"><div class="fill2" style="width:${reachW}%"></div></div><span class="vv">${c.reach.split(' ')[0]}</span></div>
+      <div class="abr"><span class="kk">underpricing</span><div class="track2"><div class="fill2" style="width:${Math.min(96,underW)}%"></div></div><span class="vv">${underM?underM[1]+'% under':'fair'}</span></div>
+      <div class="abr"><span class="kk">low saturation</span><div class="track2"><div class="fill2" style="width:${c.decay*100}%"></div></div><span class="vv">${c.decay}</span></div>
+      <div class="abres"><span>creator alpha = fit · reach ÷ price · decay</span><b>α ${c.alpha}</b></div>
+    </div></div></td>`;
+  row.after(tr);
+});
+
+/* subtle live index counter on moat */
+setInterval(()=>{
+  const el=$('#m-creators'); let n=parseInt(el.textContent.replace(/,/g,''));
+  n += Math.floor(Math.random()*4); el.textContent=n.toLocaleString('en-US');
+}, 2200);
+</script>
+</body>
+</html>
