@@ -47,6 +47,7 @@ load_dotenv(".env", override=False)
 from fastapi import FastAPI, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 from livekit import api  # noqa: E402
 
 logger = logging.getLogger("ansio.token_server")
@@ -182,3 +183,11 @@ async def token(request: Request) -> JSONResponse:
         },
         headers={"Cache-Control": "no-store"},
     )
+
+
+# Serve the static site from the SAME origin as /token so a single port (and a
+# single SSH tunnel) drives everything: page + token + (LiveKit media goes
+# direct to the public cloud, not through this server). Mounted LAST so the
+# explicit /token and /health routes win; html=True serves index.html for dirs.
+_SITE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.mount("/", StaticFiles(directory=_SITE_DIR, html=True), name="static")

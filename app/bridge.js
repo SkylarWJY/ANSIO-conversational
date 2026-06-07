@@ -26,7 +26,7 @@
   "use strict";
 
   var LK = window.LivekitClient; // UMD global from vendor/livekit-client.umd.min.js
-  var TOK = window.ANSIO_TOKEN_ENDPOINT || "http://localhost:8787/token";
+  var TOK = window.ANSIO_TOKEN_ENDPOINT || "/token"; // same-origin: token server also serves this page (one port, one SSH tunnel)
   var AGENT_NAME = window.ANSIO_AGENT_NAME || "agent-py"; // must match worker reg name
   var room = null;
   var connected = false;
