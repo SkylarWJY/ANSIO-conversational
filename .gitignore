@@ -14,6 +14,7 @@ yarn-error.log*
 # Env / secrets
 .env
 .env.*
+!.env.example
 *.local
 *.key
 *.pem
@@ -28,3 +29,16 @@ out/
 *.log
 .cache/
 tmp/
+
+# Local dev tooling (machine-specific)
+.omc/
+ecosystem.config.cjs
+logs/
+
+# Core data — never publish (real creator data, deal benchmarks, generated datasets)
+data/
+kols.json
+content.jsonl
+products.json
+playbook.json
+*benchmark*
