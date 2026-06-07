@@ -1085,6 +1085,7 @@
   .cmp-sub { font-size: 10px; color: var(--ink-2); margin-top: 1px; }
   .cmp-sim { align-self: center; }
   .cmp-desc { font-size: 11px; color: var(--ink-1); line-height: 1.5; margin: 9px 0 0; min-height: 33px; }
+  .crv-desc { font-size: 11px; color: var(--ink-2); line-height: 1.45; margin: 6px 0 0; }
   .cmp-barrow { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-2); margin: 9px 0 5px; }
 
   /* --- creator rows (.crv) --- */
@@ -2022,6 +2023,7 @@
       wrap.appendChild(stack);
       els.thread.appendChild(wrap);
       scrollThread();
+      return bubble; // streaming captions update this element in place
     }
     function pushMessage(role, text) {
       // Always record to the live session; only paint while viewing Live so
@@ -2342,9 +2344,11 @@
       var eng = engRaw != null ? engRaw + "%" : null;
       var trio = metricCell(cpm, "CPM") + metricCell(impr, "impressions") + metricCell(eng, "engagement");
       var trioHtml = trio ? '<div class="crv-trio">' + trio + "</div>" : "";
+      // creator intro/bio (博主介绍) — only rendered when present, never empty.
+      var crvDesc = (it.desc || it.bio) ? '<p class="crv-desc">' + escapeHtml(String(it.desc || it.bio).slice(0, 160)) + "</p>" : "";
       return '<div class="crv rin' + (isTop ? " is-top" : "") + '" style="--d:' + itemDelay(i) + 'ms">' +
         itemAvatar(it) +
-        '<div class="crv-main"><span class="crv-namerow"><span class="crv-name">' + name + "</span>" + badge + "</span>" + sub + "</div>" +
+        '<div class="crv-main"><span class="crv-namerow"><span class="crv-name">' + name + "</span>" + badge + "</span>" + sub + crvDesc + "</div>" +
         trioHtml +
       "</div>";
     }
@@ -3175,14 +3179,37 @@
       // captions arrive here, attributed via the event's `participant` param.
       // Route by isAgent(); a missing participant keeps the old assistant
       // default (server-side captions without attribution are agent speech).
+      // STREAMING captions: interim segments paint/update a live bubble IN
+      // PLACE (keyed by segment id, so updates never duplicate bubbles) — the
+      // text appears WITH the voice instead of only after it finishes. The
+      // FINAL segment keeps the exact old semantics: persist to history and
+      // close the voice-latency clocks.
+      var liveSegs = {};
       if (LK.RoomEvent.TranscriptionReceived) {
         r.on(LK.RoomEvent.TranscriptionReceived, function (segs, participant) {
           try {
             var role = (!participant || isAgent(participant)) ? "assistant" : "user";
+            var uiRole = role === "user" ? "user" : "ai";
             (segs || []).forEach(function (s) {
-              if (!s || !s.final || !s.text) return;
+              if (!s || !s.text) return;
+              var key = uiRole + ":" + (s.id || "seg");
+              var live = liveSegs[key];
+              if (!s.final) {
+                if (viewingSessionId !== "live") return; // never paint over history
+                if (live && live.bubble) { live.bubble.textContent = s.text; scrollThread(); }
+                else { liveSegs[key] = { bubble: renderMessageDOM(uiRole, s.text) }; }
+                return;
+              }
+              // FINAL — unchanged semantics (history + latency clocks)
               if (role === "user") markUserTurn(); // start the voice-turn clock
-              renderTranscript({ role: role, text: s.text });
+              if (live && live.bubble) {
+                live.bubble.textContent = s.text;
+                persistToLive(uiRole, s.text);
+                delete liveSegs[key];
+                scrollThread();
+              } else {
+                renderTranscript({ role: role, text: s.text });
+              }
               // assistant final reply closes the loop → compute + show Δms
               // (after render so the badge attaches to this bubble's name).
               if (role === "assistant") settleVoiceLatency();

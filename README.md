@@ -64,11 +64,14 @@ gap between what a creator is worth and what the market charges.
 
 | | |
 |---|---|
-| 🎙️ **Voice-native** | Talk or type — both reach the same agent. Real LiveKit WebRTC session, not a transcript box. |
-| ⚡ **Moss real-time recall** | A 5-hop retrieval chain runs in **~13 ms** end to end (P50 **3.1 ms**/hop). A slow vector DB (~432 ms/hop) would stall the conversation for ~2 s. |
+| 🎙️ **Voice-native** | Talk or type — both reach the same agent. Real LiveKit WebRTC session with **streaming captions** that update in place, not a transcript box. |
+| ⚡ **Moss real-time recall** | A multi-hop retrieval chain runs in **~13 ms** end to end (P50 **3.1 ms**/hop). A slow vector DB (~432 ms/hop) would stall the conversation for ~2 s. |
+| 🎬 **Staged story reveal** | Cards don't dump at once — the right rail advances **beat by beat with the consultation** (competitors → their playbook → similar-but-underpriced → alpha shortlist), enforced by an eval-tested tool-ordering discipline. |
 | 📊 **Alpha ranking** | Pre-computed 7-signal scoring; Moss only *retrieves* at runtime, so the answer is instant. |
-| 🌐 **Bilingual** | Seamless English ↔ 中文 within a turn — built for cross-border creator deals. |
-| 🪟 **Live evidence stream** | Every retrieval pushes a card to the right rail with a real millisecond HUD — you *watch* Moss work. |
+| 🧠 **Consent-gated memory** | Toggle **Memory** on and ANSIO distills each call into a user profile stored in Moss — next session it greets you knowing your product, platform and budget. Toggle off = zero reads, zero writes. One-click profile reset. |
+| 🗂️ **Real session history** | Sessions persist locally with their transcripts **and** their evidence streams — open any past consultation and the right rail replays its full card chain. |
+| 🌐 **Language modes** | EN / 中文 / Auto from settings — one language per reply (no mid-sentence mixing), wired through prompt, STT model and TTS voice. |
+| 🪟 **Live evidence stream** | Every retrieval pushes a designer-faithful card (sim-bars, donut, 4-column alpha leaderboard) with a real millisecond HUD **plus a per-reply voice-latency badge** — you *watch* Moss work. |
 
 ## 🏗️ How it works
 
@@ -76,7 +79,7 @@ gap between what a creator is worth and what the market charges.
 flowchart LR
     U([Founder voice / text]) -->|WebRTC| LK[LiveKit Agents 1.5]
     LK -->|STT deepgram/nova-3| AG[ANSIO agent]
-    AG -->|LLM function calling| MM[MiniMax-M2]
+    AG -->|LLM function calling| MM[LLM factory<br/>gpt-4.1-mini · MiniMax · Claude]
     AG -->|on_user_turn_completed<br/>+ recommend_kols meta-tool| MOSS[(Moss · local indexes)]
     MOSS -->|sub-10ms hits| SC[Alpha scoring<br/>pre-computed]
     SC -->|evidence cards| DC{{DataChannel}}
@@ -84,30 +87,37 @@ flowchart LR
     AG -->|TTS MiniMax| U
 ```
 
-**The 5-hop recall chain** — one spoken sentence cascades into a real multi-step
-retrieval, each hop feeding the next:
+**The staged reveal** — the conversation *is* the demo. Each founder reaction
+advances exactly one step, and that step's retrieval paints its card on the
+right rail (an 8-beat evidence chain, mirroring a real consultation):
 
 ```mermaid
 flowchart LR
-    A["1 · niche / brief"] --> B["2 · competitors"]
-    B --> C["3 · who they sponsored"]
-    C --> D["4 · creator profiles"]
-    D --> E["5 · similar + underpriced"]
-    E --> F["alpha ranking"]
+    A["01 · competitor landscape"] --> B["02 · their creator playbook"]
+    B --> C["03 · creator discovery"]
+    C --> D["04 · audience intelligence"]
+    D --> E["05 · creator alpha ranking"]
+    E --> F["06 · bundle"]
+    F --> G["07 · content"]
+    G --> H["08 · ROI"]
 ```
 
-Each hop is a Moss query at ~3 ms; the whole chain is **~13 ms** of retrieval.
-That speed is the product — at 432 ms/hop the agent would talk over a 2-second
-pause. **This is why it has to be Moss.**
+Stage ordering is enforced two ways: a hard tool-ordering discipline in the
+system prompt (regression-tested by `tests/staged_flow_eval.py` against the
+live brain) and a per-turn card-type guard in the agent. Each hop is a Moss
+query at ~3 ms; a full recall chain is **~13 ms** of retrieval. That speed is
+the product — at 432 ms/hop the agent would talk over a 2-second pause.
+**This is why it has to be Moss.**
 
 ## 🛠️ Built with
 
 | Tool | Role |
 |------|------|
-| [**Moss**](https://www.moss.dev) | Real-time, on-device semantic search — the multi-hop recall engine. *Sub-10 ms, zero infra.* |
+| [**Moss**](https://www.moss.dev) | Real-time semantic search — the multi-hop recall engine **and the agentic memory store** (user profiles). Cloud-first with a zero-quota **on-device session-index fallback**. *Sub-10 ms, zero infra.* |
 | [**LiveKit Agents 1.5**](https://docs.livekit.io/agents/) | Realtime voice pipeline (STT · turn detection · WebRTC transport + DataChannel). |
-| [**MiniMax**](https://www.minimax.io) | LLM (function-calling agent) **and** bilingual TTS voice. |
-| [**Deepgram**](https://deepgram.com) `nova-3` | Multilingual speech-to-text, via LiveKit Inference. |
+| [**MiniMax**](https://www.minimax.io) | Bilingual TTS voice; hot-swappable LLM option in the model factory. |
+| [**LiveKit Inference**](https://docs.livekit.io/agents/models/inference) `gpt-4.1-mini` | Default function-calling brain (env hot-swap: MiniMax-M2 / Claude). |
+| [**Deepgram**](https://deepgram.com) `nova-3` | Speech-to-text — multilingual model, with a dedicated Mandarin model when 中文 mode is selected. |
 
 ## 🚀 Quickstart
 
@@ -147,7 +157,8 @@ ANSIO-conversational/
 │   └── vendor/          #   livekit-client UMD
 ├── agent-py/            # LiveKit Agents worker
 │   └── src/             #   agent.py · llm_factory · 5 tools + recommend_kols meta-tool
-│                        #   scoring · avatar · events · Moss index builders
+│                        #   memory (consented profiles) · lang (EN/中/Auto modes)
+│                        #   moss_router (on-device fallback) · scoring · events
 ├── token_server.py      # FastAPI: signs LiveKit JWTs + serves the static site
 ├── ecosystem.config.cjs # pm2 process map (local dev)
 └── demo/                # original landing demo
@@ -160,6 +171,9 @@ collaborated brands) plus a **synthetic** dataset. Any real deal pricing is
 collapsed into an *aggregated* benchmark only; individual quotes never enter the
 indexes, never appear on screen (the UI shows **“Estimated Market Cost”**), and
 raw data files are git-ignored. Credentials live only in a git-ignored `.env`.
+User memory is **opt-in**: profiles are written to Moss only while the Memory
+toggle is on; switched off, the agent performs zero profile reads or writes,
+and a one-click reset deletes the stored profile.
 
 ## 👥 Team
 
