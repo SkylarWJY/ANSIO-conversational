@@ -196,3 +196,8 @@ for the tools and the arena.
 ## 📄 License
 
 [MIT](LICENSE) © 2026 ANSIO Team
+
+## 🛰 More from Skylar
+
+- [**skylarnyc.com**](https://skylarnyc.com) — NYC date-spot guide: 100 review-backed picks, built with the open-source [city-food-guide](https://github.com/SkylarWJY/city-food-guide) engine
+- More projects → [github.com/SkylarWJY](https://github.com/SkylarWJY)
